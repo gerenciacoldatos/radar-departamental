@@ -36,7 +36,22 @@ section{margin-top:56px}
 h2{font-size:32px;line-height:1.2;color:var(--navy);margin:0 0 8px;font-weight:400}
 h3.finding{font-size:20px;line-height:1.35;color:var(--ink);margin:0 0 6px;font-weight:700}
 .sub{margin:0 0 22px;color:var(--ink2);font-size:15.5px;max-width:820px}
-.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:34px 18px;margin-top:8px}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:34px 18px;margin-top:8px}
+.narrativa{max-width:860px;margin:26px auto 0;font-size:18px;line-height:1.65;color:var(--ink)}
+.narrativa p{margin:0 0 12px}
+.narrativa b{color:var(--navy)}
+.narrativa .nota-auto{font-size:13px;color:var(--ink3);margin-top:4px}
+.crimes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:30px 34px;margin-top:10px}
+.crime{cursor:pointer}
+.crime h5{font-size:16px;font-weight:700;margin:0;color:var(--ink)}
+.crime .c-val{font-size:14px;color:var(--ink2);margin:2px 0 6px}
+.crime .c-val b{color:var(--navy);font-size:20px;font-weight:400}
+.crime:hover h5{text-decoration:underline;text-underline-offset:3px}
+.crime.on h5{color:var(--navy)}
+.key{display:flex;gap:20px;flex-wrap:wrap;font-size:13.5px;color:var(--ink2);margin:0 0 14px}
+.key span{display:inline-flex;align-items:center;gap:7px}
+.key i{display:inline-block;width:22px;height:0;border-top:2.5px solid var(--navy)}
+.key i.nal{border-top:2px dashed #8a929c}
 .kpi{all:unset;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;cursor:pointer;padding:6px 6px 10px;border-bottom:2px solid transparent;font-family:var(--font)}
 .kpi:hover .k-name{text-decoration:underline;text-underline-offset:3px}
 .kpi.on{border-bottom-color:var(--navy)}
@@ -81,8 +96,9 @@ tr.sel td{background:var(--peach);font-weight:600}
 .method{font-size:14px;color:var(--ink2);margin-top:48px}
 .method summary{cursor:pointer;font-weight:400;color:var(--navy);font-size:22px}
 .sr{position:absolute;left:-9999px}
+@media (max-width:1000px){.kpis{grid-template-columns:repeat(3,minmax(0,1fr))}.crimes{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:900px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.grid2{grid-template-columns:1fr}h1{font-size:32px}h2{font-size:27px}}
-@media (max-width:480px){.wrap{padding:28px 16px 32px}.kpi .k-val{font-size:28px}.kpi .k-name{font-size:15px}.controls{font-size:16px;justify-content:flex-start}label.ctl{width:100%;flex-direction:column;align-items:stretch;gap:2px}label.ctl select{width:100%}select{font-size:16px}#methodTable{overflow-x:auto}.lede{font-size:16.5px}}
+@media (max-width:480px){.wrap{padding:28px 16px 32px}.kpi .k-val{font-size:28px}.kpi .k-name{font-size:15px}.controls{font-size:16px;justify-content:flex-start}.narrativa{font-size:16.5px}.crimes{grid-template-columns:1fr}label.ctl{width:100%;flex-direction:column;align-items:stretch;gap:2px}label.ctl select{width:100%}select{font-size:16px}#methodTable{overflow-x:auto}.lede{font-size:16.5px}}
 </style>
 </head>
 <body>
@@ -97,6 +113,7 @@ tr.sel td{background:var(--peach);font-weight:600}
     <label class="ctl">Departamento <select id="selDep"></select></label>
     <label class="ctl">Indicador <select id="selInd"></select></label>
   </div>
+  <div class="narrativa" id="narrativa" aria-live="polite"></div>
 
   <section id="ficha" aria-labelledby="t-ficha">
     <h2 id="t-ficha"></h2>
@@ -128,6 +145,23 @@ tr.sel td{background:var(--peach);font-weight:600}
       <button class="btn" id="btnCsv">Descargar datos (CSV)</button>
     </div>
     <div id="tableBox" hidden></div>
+  </section>
+
+  <section aria-labelledby="t-serie">
+    <h2>Serie histórica</h2>
+    <h3 class="finding" id="t-serie"></h3>
+    <p class="sub" id="serie-sub"></p>
+    <div class="key"><span><i></i><b id="key-dep"></b></span><span><i class="nal"></i>Colombia</span></div>
+    <svg id="serie" role="img" aria-labelledby="t-serie"></svg>
+    <p class="src" id="serie-src"></p>
+  </section>
+
+  <section aria-labelledby="t-crimen">
+    <h2 id="t-crimen">Seguridad, delito a delito</h2>
+    <p class="sub" id="crimen-sub"></p>
+    <div class="key"><span><i></i><b id="key-dep2"></b></span><span><i class="nal"></i>Colombia</span></div>
+    <div class="crimes" id="crimes"></div>
+    <p class="src">Fuente: <a href="https://www.policia.gov.co/estadistica-delictiva" target="_blank" rel="noopener">Policía Nacional, estadística delictiva (SIEDCO)</a> y DANE, proyecciones de población. Cálculos: Colombia en Datos. Cifras provisionales hasta marzo del año siguiente.</p>
   </section>
 
   <section aria-labelledby="t-scatter">
@@ -169,14 +203,14 @@ tr.sel td{background:var(--peach);font-weight:600}
   const state = {
     dep: DEP[params.get('dpto')] ? params.get('dpto') : '11',
     ind: IND[params.get('ind')] ? params.get('ind') : 'homicidios_tasa',
-    x: 'internet_fijo_por_100', y: 'saber11_puntaje_global'
+    x: 'pib_per_capita', y: 'ipm'
   };
   $('upd').textContent = D.actualizado;
 
   const fmt = (v, dec) => v == null || isNaN(v) ? 'Sin dato' : v.toLocaleString('es-CO', {minimumFractionDigits: dec, maximumFractionDigits: dec});
   const isVar = i => i.unidad === '%' && /var/i.test(i.id);
-  const fmtv = (i, v) => (isVar(i) && v > 0 ? '+' : '') + fmt(v, i.dec) + (i.unidad.startsWith('%') ? ' %' : '');
-  const unitTxt = i => i.unidad.startsWith('%') ? (i.unidad === '%' ? '' : i.unidad.replace('%', 'porcentaje')) : i.unidad;
+  const fmtv = (i, v) => v == null || isNaN(v) ? 'Sin dato' : i.unidad === 'pesos' ? fmt(v / 1e6, 1) + ' M' : (isVar(i) && v > 0 ? '+' : '') + fmt(v, i.dec) + (i.unidad.startsWith('%') ? ' %' : '');
+  const unitTxt = i => i.unidad === 'pesos' ? 'millones de pesos corrientes' : i.unidad.startsWith('%') ? (i.unidad === '%' ? '' : i.unidad.replace('%', 'porcentaje')) : i.unidad;
 
   function ranking(i){
     const arr = Object.entries(i.v).filter(([,v]) => v != null).sort((a,b) => i.sentido === -1 ? a[1]-b[1] : b[1]-a[1]);
@@ -195,17 +229,17 @@ tr.sel td{background:var(--peach);font-weight:600}
     const diff = v - i.nacional;
     let rel;
     if (i.unidad.startsWith('%') || i.unidad === '%') rel = (diff>0?'+':'') + fmt(diff, 1) + ' p.p. frente al nacional (' + fmtv(i, i.nacional) + ')';
-    else { const r = diff / i.nacional * 100; rel = (r>0?'+':'') + fmt(r, 0) + ' % frente al nacional (' + fmt(i.nacional, i.dec) + ')'; }
+    else { const r = diff / i.nacional * 100; rel = (r>0?'+':'') + fmt(r, 0) + ' % frente al nacional (' + fmtv(i, i.nacional) + ')'; }
     return rel;
   }
 
   // ---------- selectors ----------
-  const groups = [...new Set(D.indicadores.map(i => i.grupo))];
+  const groups = [...new Set(D.indicadores.filter(i => !i.oculto).map(i => i.grupo))];
   function fillIndSelect(sel, value){
     sel.innerHTML = '';
     groups.forEach(g => {
       const og = document.createElement('optgroup'); og.label = g;
-      D.indicadores.filter(i => i.grupo === g).forEach(i => { const o = new Option(i.nombre, i.id); og.appendChild(o); });
+      D.indicadores.filter(i => i.grupo === g && !i.oculto).forEach(i => { const o = new Option(i.nombre, i.id); og.appendChild(o); });
       sel.appendChild(og);
     });
     sel.value = value;
@@ -239,7 +273,7 @@ tr.sel td{background:var(--peach);font-weight:600}
       const i = IND[id], v = i.v[state.dep], {pos} = ranking(i);
       const b = document.createElement('button'); b.className = 'kpi' + (id === state.ind ? ' on' : ''); b.type = 'button';
       const cls = cmpClass(i, v);
-      const rankTxt = pos[state.dep] ? (i.sentido === 0 ? 'Puesto ' + pos[state.dep] + ' de ' + N + ' (de mayor a menor)' : 'Puesto ' + pos[state.dep] + ' de ' + N) : '';
+      const nI = Object.keys(i.v).length; const rankTxt = pos[state.dep] ? (i.sentido === 0 ? 'Puesto ' + pos[state.dep] + ' de ' + nI + ' por valor' : 'Puesto ' + pos[state.dep] + ' de ' + nI) : '';
       b.innerHTML = `<span class="k-name">${i.nombre}</span><span class="k-val">${fmtv(i, v)}</span><span class="k-unit">${unitTxt(i) ? unitTxt(i) + ' · ' : ''}${i.periodo}</span><span class="k-cmp ${cls}">${cmpText(i, v)}</span><span class="k-rank ${cls}">${rankTxt}</span>`;
       b.onclick = () => { state.ind = id; $('selInd').value = id; render(); document.getElementById('t-mapa').scrollIntoView({behavior:'smooth', block:'start'}); };
       box.appendChild(b);
@@ -253,10 +287,12 @@ tr.sel td{background:var(--peach);font-weight:600}
     const top = DEP[arr[0][0]].nombre, bottom = DEP[arr[arr.length-1][0]].nombre;
     const p = pos[state.dep];
     if (i.sentido === 0) {
-      return `${i.nombre}: ${d.nombre} registra ${fmtv(i, v)} y ocupa el puesto ${p} de ${N}, de mayor a menor`;
+      if (!p) return `${i.nombre}: sin dato para ${d.nombre}; ${top} registra el valor más alto`;
+      return `${i.nombre}: ${d.nombre} registra ${fmtv(i, v)} y ocupa el puesto ${p} de ${arr.length}, de mayor a menor`;
     }
     const best = i.sentido === 1 ? 'más alto' : 'más bajo';
-    return `${i.nombre}: ${d.nombre} ocupa el puesto ${p} de ${N}; ${top} tiene el valor ${best} y ${bottom} el más rezagado`;
+    if (!p) return `${i.nombre}: el DANE no publica este dato para ${d.nombre}; ${top} tiene el valor ${best} y ${bottom} el más rezagado`;
+    return `${i.nombre}: ${d.nombre} ocupa el puesto ${p} de ${arr.length}; ${top} tiene el valor ${best} y ${bottom} el más rezagado`;
   }
 
   // ---------- map ----------
@@ -366,8 +402,8 @@ tr.sel td{background:var(--peach);font-weight:600}
     const [x0,x1] = ext(pts.map(p=>p.x), ix.nacional), [y0,y1] = ext(pts.map(p=>p.y), iy.nacional);
     const X = v => m.l + (v-x0)/(x1-x0)*(W-m.l-m.r), Y = v => H-m.b - (v-y0)/(y1-y0)*(H-m.t-m.b);
     const ticks = (a,b) => { const st = Math.pow(10, Math.floor(Math.log10((b-a)/5))), cand=[1,2,2.5,5,10].map(k=>k*st).find(s => (b-a)/s <= 6); const out=[]; for (let v=Math.ceil(a/cand)*cand; v<=b; v+=cand) out.push(+v.toFixed(6)); return out; };
-    ticks(x0,x1).forEach(v => { el('line',{x1:X(v),x2:X(v),y1:m.t,y2:H-m.b,stroke:'var(--grid)'},svg); const t=el('text',{x:X(v),y:H-m.b+16,'text-anchor':'middle','font-size':12,fill:'var(--ink3)'},svg); t.textContent=fmt(v, v%1?1:0); });
-    ticks(y0,y1).forEach(v => { el('line',{x1:m.l,x2:W-m.r,y1:Y(v),y2:Y(v),stroke:'var(--grid)'},svg); const t=el('text',{x:m.l-8,y:Y(v)+4,'text-anchor':'end','font-size':12,fill:'var(--ink3)'},svg); t.textContent=fmt(v, v%1?1:0); });
+    ticks(x0,x1).forEach(v => { el('line',{x1:X(v),x2:X(v),y1:m.t,y2:H-m.b,stroke:'var(--grid)'},svg); const t=el('text',{x:X(v),y:H-m.b+16,'text-anchor':'middle','font-size':12,fill:'var(--ink3)'},svg); t.textContent= ix.unidad === 'pesos' ? fmt(v/1e6,0)+' M' : fmt(v, v%1?1:0); });
+    ticks(y0,y1).forEach(v => { el('line',{x1:m.l,x2:W-m.r,y1:Y(v),y2:Y(v),stroke:'var(--grid)'},svg); const t=el('text',{x:m.l-8,y:Y(v)+4,'text-anchor':'end','font-size':12,fill:'var(--ink3)'},svg); t.textContent= iy.unidad === 'pesos' ? fmt(v/1e6,0)+' M' : fmt(v, v%1?1:0); });
     const narrow = W < 640; const tx = el('text',{x:(m.l+W-m.r)/2,y:H-12,'text-anchor':'middle','font-size':narrow?12:13,'font-weight':600,fill:'var(--ink2)'},svg); tx.textContent = narrow ? ix.nombre : `${ix.nombre} (${ix.unidad}, ${ix.periodo})`;
     const ty = el('text',{x:16,y:(m.t+H-m.b)/2,'text-anchor':'middle','font-size':13,'font-weight':600,fill:'var(--ink2)',transform:`rotate(-90 16 ${(m.t+H-m.b)/2})`},svg); ty.textContent = narrow ? iy.nombre : `${iy.nombre} (${iy.unidad}, ${iy.periodo})`;
     if (ix.nacional != null) el('line',{x1:X(ix.nacional),x2:X(ix.nacional),y1:m.t,y2:H-m.b,stroke:'var(--navy)','stroke-dasharray':'4 4'},svg);
@@ -387,15 +423,117 @@ tr.sel td{background:var(--peach);font-weight:600}
     $('sc-src').textContent = `Fuentes: ${src}. ${(ix.tipo === 'Cálculo propio' || iy.tipo === 'Cálculo propio') ? 'Cálculos: Colombia en Datos.' : ''}`;
   }
 
+  // ---------- narrativa ----------
+  const MESES = ['', 'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+  function comp(v, n, sentidoTxt){ if (v == null || n == null) return ''; const r = v / n; return r > 1.1 ? 'por encima del' : r < 0.9 ? 'por debajo del' : 'cerca del'; }
+  function renderNarr(){
+    const c = state.dep, d = DEP[c], g = id => IND[id] ? IND[id].v[c] : null, n = id => IND[id] ? IND[id].nacional : null;
+    const pos = id => ranking(IND[id]).pos[c], tot = id => Object.keys(IND[id].v).length;
+    const P = [];
+    const pob = g('poblacion_total'), share = pob / n('poblacion_total') * 100;
+    const pobTxt = pob >= 1e6 ? fmt(pob / 1e6, 1) + ' millones de habitantes' : fmt(pob, 0) + ' habitantes';
+    const ppc = g('pib_per_capita'), ppcN = n('pib_per_capita'), gr = g('pib_crec_real'), grN = n('pib_crec_real');
+    let s1 = `<b>${d.nombre}</b> tiene ${pobTxt} en 2026 (${fmt(share, 1)} % del país). Su PIB por habitante fue de <b>${fmt(ppc / 1e6, 1)} millones de pesos</b> en 2025, ${comp(ppc, ppcN)} promedio nacional (${fmt(ppcN / 1e6, 1)} millones)`;
+    if (gr != null) s1 += `, y su economía ${gr >= 0 ? 'creció' : 'se contrajo'} <b>${fmt(Math.abs(gr), 1)} %</b> en términos reales, frente a ${fmt(grN, 1)} % del país.`;
+    P.push(s1);
+    const pm = g('pobreza_monetaria'), ipm = g('ipm'), td = g('td');
+    let s2;
+    if (pm != null) {
+      s2 = `La pobreza monetaria alcanza al <b>${fmt(pm, 1)} %</b> de su población (país: ${fmt(n('pobreza_monetaria'), 1)} %), puesto ${pos('pobreza_monetaria')} de ${tot('pobreza_monetaria')} de menor a mayor pobreza, y la pobreza multidimensional al <b>${fmt(ipm, 1)} %</b> (país: ${fmt(n('ipm'), 1)} %).`;
+      if (td != null) s2 += ` Su tasa de desocupación fue <b>${fmt(td, 1)} %</b> en 2025 (país: ${fmt(n('td'), 1)} %).`;
+    } else {
+      s2 = `El DANE no mide la pobreza monetaria ni el mercado laboral en ${d.nombre}; la pobreza multidimensional, que sí se mide, afecta al <b>${fmt(ipm, 1)} %</b> de su población (país: ${fmt(n('ipm'), 1)} %), puesto ${pos('ipm')} de 33 de menor a mayor.`;
+    }
+    P.push(s2);
+    const h = g('homicidios_tasa'), hv = g('homicidios_var_ytd'), hc = g('homicidios_casos_ytd'), mes = MESES[D.ult_mes_delitos];
+    let s3 = `En seguridad, registró <b>${fmt(h, 1)} homicidios por cada 100.000 habitantes</b> en 2025 (país: ${fmt(n('homicidios_tasa'), 1)}).`;
+    if (hv != null && hc != null) {
+      const dir = Math.abs(hv) < 2 ? 'se mantuvieron estables' : (hv > 0 ? 'aumentaron ' : 'disminuyeron ') + (Math.abs(hv) < 2 ? '' : fmt(Math.abs(hv), 1) + ' %');
+      s3 += ` Entre enero y ${mes} de 2026 hubo ${fmt(hc, 0)} homicidios: ${dir} frente al mismo periodo de 2025${hc < 30 ? ', una variación que con tan pocos casos debe leerse con cautela' : ''}.`;
+    }
+    P.push(s3);
+    const cand = ['pib_per_capita', 'td', 'pobreza_monetaria', 'ipm', 'homicidios_tasa', 'cobertura_neta_media', 'saber11_puntaje_global', 'internet_fijo_por_100', 'mortalidad_infantil_tasa', 'desercion_total'];
+    const r = cand.filter(id => IND[id] && pos(id)).map(id => ({id, p: pos(id), t: tot(id), q: (pos(id) - 1) / (tot(id) - 1)}));
+    if (r.length > 2) {
+      r.sort((a, b) => a.q - b.q); const best = r[0], worst = r[r.length - 1];
+      if (worst.q - best.q > 0.25) P.push(`Su posición relativa más favorable está en <b>${IND[best.id].nombre.toLowerCase()}</b> (puesto ${best.p} de ${best.t}); la más rezagada, en <b>${IND[worst.id].nombre.toLowerCase()}</b> (puesto ${worst.p} de ${worst.t}).`);
+      else P.push(`Su posición es relativamente pareja: en los principales indicadores se ubica entre los puestos ${Math.min(...r.map(x => x.p))} y ${Math.max(...r.map(x => x.p))}.`);
+    }
+    $('narrativa').innerHTML = P.map(t => `<p>${t}</p>`).join('') + '<p class="nota-auto">Lectura generada automáticamente a partir de los datos oficiales de cada fuente. No establece causas.</p>';
+  }
+
+  // ---------- serie histórica (línea: departamento vs Colombia) ----------
+  function lineChart(svg, i, cod, opts = {}){
+    const W = Math.max(280, svg.parentNode.clientWidth || 900), H = opts.h || (W < 600 ? 260 : 340), small = !!opts.small;
+    const m = {l: small ? 8 : 58, r: small ? 46 : 90, t: small ? 14 : 18, b: small ? 22 : 34};
+    svg.innerHTML = ''; svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const sd = (i.serie || {})[cod] || [], sn = (i.serie || {})['00'] || [];
+    const per = [...new Set([...sd.map(x => x[0]), ...sn.map(x => x[0])])];
+    const order = p => { const mm = /(\d{4})(?:-T(\d))?/.exec(p); return mm ? +mm[1] * 10 + (+mm[2] || 0) : 0; };
+    per.sort((a, b) => order(a) - order(b));
+    if (per.length < 2 || sd.length < 2) { const t = el('text', {x: 8, y: 24, 'font-size': 14, fill: 'var(--ink3)'}, svg); t.textContent = 'Este indicador tiene un solo periodo disponible.'; return null; }
+    const vals = [...sd, ...sn].map(x => x[1]); let lo = Math.min(...vals), hi = Math.max(...vals);
+    if (lo > 0 && !small && lo / hi < 0.55) lo = 0; const pad = (hi - lo) * 0.08 || 1; lo -= (lo === 0 ? 0 : pad); hi += pad;
+    const X = p => m.l + per.indexOf(p) / (per.length - 1) * (W - m.l - m.r), Y = v => H - m.b - (v - lo) / (hi - lo) * (H - m.t - m.b);
+    if (!small) {
+      const st = Math.pow(10, Math.floor(Math.log10((hi - lo) / 4))); const stp = [1, 2, 2.5, 5, 10].map(k => k * st).find(s => (hi - lo) / s <= 5);
+      for (let v = Math.ceil(lo / stp) * stp; v <= hi; v += stp) { el('line', {x1: m.l, x2: W - m.r, y1: Y(v), y2: Y(v), stroke: 'var(--grid)'}, svg); const t = el('text', {x: m.l - 8, y: Y(v) + 4, 'text-anchor': 'end', 'font-size': 12, fill: 'var(--ink3)'}, svg); t.textContent = i.unidad === 'pesos' ? fmt(v / 1e6, 0) + ' M' : fmt(v, stp < 1 ? (stp < .1 ? 2 : 1) : 0); }
+      const every = Math.ceil(per.length / (W < 600 ? 5 : 10));
+      per.forEach((p, k) => { if (k % every === 0 || k === per.length - 1) { const t = el('text', {x: X(p), y: H - m.b + 18, 'text-anchor': 'middle', 'font-size': 12, fill: 'var(--ink3)'}, svg); t.textContent = p; } });
+    } else {
+      [per[0], per[per.length - 1]].forEach((p, k) => { const t = el('text', {x: X(p), y: H - 6, 'text-anchor': k ? 'end' : 'start', 'font-size': 11.5, fill: 'var(--ink3)'}, svg); t.textContent = p; });
+      el('line', {x1: m.l, x2: W - m.r, y1: H - m.b, y2: H - m.b, stroke: 'var(--grid)'}, svg);
+    }
+    const path = s => s.map((x, k) => (k ? 'L' : 'M') + X(x[0]).toFixed(1) + ',' + Y(x[1]).toFixed(1)).join('');
+    if (sn.length > 1) el('path', {d: path(sn), fill: 'none', stroke: '#8a929c', 'stroke-width': 2, 'stroke-dasharray': '5 4'}, svg);
+    el('path', {d: path(sd), fill: 'none', stroke: 'var(--navy)', 'stroke-width': small ? 2.2 : 2.6}, svg);
+    const lastD = sd[sd.length - 1], lastN = sn[sn.length - 1];
+    const lab = (pt, color, w) => { const t = el('text', {x: X(pt[0]) + 7, y: Y(pt[1]) + 4, 'font-size': small ? 12 : 13, 'font-weight': w, fill: color}, svg); t.textContent = fmtv(i, pt[1]).replace(' millones', ' M'); return t; };
+    let yD = Y(lastD[1]), yN = lastN ? Y(lastN[1]) : null;
+    const tD = lab(lastD, 'var(--navy)', 700); if (lastN && sn.length > 1) { const tN = lab(lastN, '#6b7380', 400); if (Math.abs(yD - yN) < 14) { const off = yD < yN ? -7 : 7; tD.setAttribute('y', yD + 4 + off); tN.setAttribute('y', yN + 4 - off); } }
+    if (!small) sd.forEach(x => { const c = el('circle', {cx: X(x[0]), cy: Y(x[1]), r: 3.5, fill: 'var(--navy)'}, svg); const hit = el('circle', {cx: X(x[0]), cy: Y(x[1]), r: 12, fill: 'transparent'}, svg); const nv = (sn.find(z => z[0] === x[0]) || [])[1];
+      hit.addEventListener('mousemove', e => showTip(e, `<b>${DEP[cod].nombre}, ${x[0]}</b><br>${fmtv(i, x[1])}${nv != null ? '<br><span style="color:var(--ink3)">Colombia: ' + fmtv(i, nv) + '</span>' : ''}`)); hit.addEventListener('mouseleave', hideTip); });
+    return {first: sd[0], last: lastD};
+  }
+  function renderSerie(){
+    const i = IND[state.ind], d = DEP[state.dep];
+    $('key-dep').textContent = d.nombre; $('key-dep2').textContent = d.nombre;
+    const r = lineChart($('serie'), i, state.dep);
+    if (r) {
+      const delta = r.last[1] - r.first[1], up = delta > 0;
+      const how = Math.abs(delta) / Math.max(Math.abs(r.first[1]), 1e-9) < 0.02 ? 'se mantuvo prácticamente igual' : (up ? 'subió' : 'bajó') + ` de ${fmtv(i, r.first[1])} a ${fmtv(i, r.last[1])}`;
+      $('t-serie').textContent = `${i.nombre} en ${d.nombre}: entre ${r.first[0]} y ${r.last[0]} ${how}`;
+    } else $('t-serie').textContent = `${i.nombre} en ${d.nombre}`;
+    $('serie-sub').textContent = `${i.nombre_largo}${i.nombre_largo.includes(i.unidad) || i.unidad === '%' ? '' : ' (' + unitTxt(i) + ')'}. Cambia el indicador en el selector de arriba.`;
+    $('serie-src').innerHTML = `Fuente: <a href="${i.url}" target="_blank" rel="noopener">${i.fuente}</a>.${i.tipo === 'Cálculo propio' ? ' Cálculos: Colombia en Datos.' : ''}`;
+  }
+
+  // ---------- seguridad: múltiplos pequeños ----------
+  function renderCrimes(){
+    const c = state.dep, box = $('crimes'); box.innerHTML = '';
+    const mes = MESES[D.ult_mes_delitos];
+    $('crimen-sub').textContent = `Tasa anual por cada 100.000 habitantes, 2020 a 2025, y variación de casos entre enero y ${mes} de 2026 frente al mismo periodo de 2025. Haz clic en un delito para verlo en el mapa.`;
+    D.delitos.forEach(k => {
+      const i = IND[k + '_tasa'], iv = IND[k + '_var_ytd'], v = i.v[c], vv = iv ? iv.v[c] : null;
+      const div = document.createElement('div'); div.className = 'crime' + (state.ind === k + '_tasa' ? ' on' : '');
+      const name = i.nombre.replace(/^Tasa de /, ''); const nm = name.charAt(0).toUpperCase() + name.slice(1);
+      const cc = IND[k + '_casos_ytd'].v[c]; const varTxt = vv == null ? '' : (cc < 10 ? ` · ${fmt(cc, 0)} casos en 2026` : ` · ${vv > 0 ? '+' : ''}${fmt(vv, 0)} % en 2026`);
+      div.innerHTML = `<h5>${nm}</h5><p class="c-val"><b>${fmt(v, 1)}</b> por 100.000 en 2025${varTxt}</p>`;
+      const svg = document.createElementNS(NS, 'svg'); div.appendChild(svg); box.appendChild(div);
+      lineChart(svg, i, c, {small: true, h: 120});
+      div.onclick = () => { state.ind = k + '_tasa'; $('selInd').value = state.ind; render(); document.getElementById('t-mapa').scrollIntoView({behavior: 'smooth', block: 'start'}); };
+    });
+  }
+
   function render(){
-    renderKpis(); renderMap(); renderRank(); renderMeta(); renderScatter();
+    renderNarr(); renderKpis(); renderMap(); renderRank(); renderMeta(); renderSerie(); renderCrimes(); renderScatter();
     const u = new URL(location.href); u.searchParams.set('dpto', state.dep); u.searchParams.set('ind', state.ind);
     try { history.replaceState(null, '', u); } catch(e) {}
     postHeight();
   }
   // Informa la altura a la página contenedora (útil con el elemento HTML de Wix y Velo)
   function postHeight(){ try { parent.postMessage({type:'radar-height', height: document.documentElement.scrollHeight}, '*'); } catch(e) {} }
-  let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { renderRank(); renderScatter(); postHeight(); }, 150); });
+  let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { renderRank(); renderScatter(); renderSerie(); renderCrimes(); postHeight(); }, 150); });
   render();
 })();
 </script>
