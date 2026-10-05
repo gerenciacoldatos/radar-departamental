@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radar departamental | Colombia en Datos</title>
+<meta name="description" content="Compara los 32 departamentos y Bogotá en población, salud, seguridad, educación y conectividad con los datos oficiales más recientes.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#031c3b; --ink:#16202c; --ink2:#4b5664; --ink3:#6f7884;
+  --line:#d9dee5; --grid:#eceff3; --bg:#ffffff; --panel:#f5f7f9;
+  --accent:#e0911f; --accent-ink:#9a5b00;
+  --good:#1f7a4d; --bad:#b4361f;
+  --s1:#e3eaf2; --s2:#b6c7da; --s3:#7f9bba; --s4:#3f6590; --s5:#0d325c;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Open Sans","Segoe UI",Arial,sans-serif;font-size:15px;line-height:1.45}
+.wrap{max-width:1160px;margin:0 auto;padding:24px 20px 32px}
+header.top{display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap;border-bottom:3px solid var(--navy);padding-bottom:14px}
+.kicker{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--accent-ink)}
+h1{font-size:30px;line-height:1.15;margin:4px 0 6px;color:var(--navy);font-weight:800}
+.lede{margin:0;color:var(--ink2);max-width:720px}
+.stamp{font-size:12.5px;color:var(--ink3);text-align:right}
+.controls{position:sticky;top:0;z-index:5;background:rgba(255,255,255,.96);backdrop-filter:blur(4px);display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;padding:12px 0;border-bottom:1px solid var(--line)}
+label.ctl{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--ink2)}
+select{font:inherit;font-size:14.5px;color:var(--ink);padding:8px 34px 8px 10px;border:1px solid #b9c1cc;border-radius:6px;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23031c3b' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 11px center;appearance:none;min-width:220px;max-width:100%}
+select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+section{margin-top:30px}
+h2{font-size:21px;color:var(--navy);margin:0 0 4px;font-weight:700}
+.sub{margin:0 0 14px;color:var(--ink2);font-size:14px}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.kpi{background:var(--panel);border-radius:8px;padding:14px 14px 12px;display:flex;flex-direction:column;gap:3px;cursor:pointer;border:1px solid transparent;text-align:left;font:inherit;color:inherit}
+.kpi:hover{border-color:#b9c1cc}
+.kpi.on{border-color:var(--navy);background:#fff}
+.kpi .k-name{font-size:12.5px;font-weight:600;color:var(--ink2)}
+.kpi .k-val{font-size:26px;font-weight:800;color:var(--navy);line-height:1.15;font-variant-numeric:tabular-nums}
+.kpi .k-unit{font-size:11.5px;color:var(--ink3)}
+.kpi .k-cmp{font-size:12.5px;color:var(--ink2);margin-top:4px}
+.kpi .k-rank{font-size:12px;font-weight:700}
+.better{color:var(--good)} .worse{color:var(--bad)} .neutral{color:var(--ink2)}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px;align-items:start}
+.card h3{font-size:16.5px;margin:0 0 2px;color:var(--ink);font-weight:700}
+.card .meta{font-size:12.5px;color:var(--ink3);margin:0 0 10px}
+svg{display:block;max-width:100%;height:auto}
+.dept{stroke:#fff;stroke-width:.8;cursor:pointer}
+.dept:hover{stroke:var(--ink);stroke-width:1.4}
+.dept.sel{stroke:var(--accent);stroke-width:2.6}
+.legend{display:flex;gap:4px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--ink2);margin-top:8px}
+.legend .sw{width:28px;height:10px;border-radius:2px;display:inline-block}
+.legend .lab{margin-right:8px}
+.legend .li{display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.bar-row{cursor:pointer}
+.bar-row:hover .bar-name{font-weight:700}
+.tip{position:fixed;pointer-events:none;background:#fff;border:1px solid var(--line);box-shadow:0 4px 14px rgba(3,28,59,.14);border-radius:6px;padding:8px 10px;font-size:12.5px;color:var(--ink);opacity:0;transition:opacity .08s;z-index:20;max-width:240px}
+.tip b{color:var(--navy)}
+.note{font-size:12.5px;color:var(--ink2);background:var(--panel);border-left:3px solid var(--accent);padding:8px 12px;border-radius:0 6px 6px 0;margin:12px 0 0}
+.src{font-size:12px;color:var(--ink3);margin-top:8px}
+.src a{color:var(--ink2)}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+button.btn{font:inherit;font-size:13px;font-weight:600;color:var(--navy);background:#fff;border:1px solid #b9c1cc;border-radius:6px;padding:7px 12px;cursor:pointer}
+button.btn:hover{border-color:var(--navy)}
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:10px}
+th,td{padding:6px 8px;border-bottom:1px solid var(--grid);text-align:left}
+th{color:var(--ink2);font-weight:600;font-size:12px}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+tr.sel td{background:#fff4e2;font-weight:600}
+.scatter-ctl{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.scatter-ctl select{min-width:200px}
+footer{margin-top:40px;background:var(--navy);color:#fff;border-radius:8px;padding:18px 20px;display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:13px}
+footer .brand{font-weight:800;font-size:16px}
+footer .brand small{display:block;font-weight:400;font-size:12px;color:#c6d1de}
+footer .social{display:flex;gap:16px;flex-wrap:wrap;align-items:center;color:#dde5ee}
+.method{font-size:12.5px;color:var(--ink2);margin-top:28px;border-top:1px solid var(--line);padding-top:14px}
+.method summary{cursor:pointer;font-weight:700;color:var(--navy);font-size:14px}
+.sr{position:absolute;left:-9999px}
+@media (max-width:900px){.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.grid2{grid-template-columns:1fr}h1{font-size:25px}.stamp{text-align:left}}
+@media (max-width:420px){.wrap{padding:16px 14px 24px}.kpi .k-val{font-size:22px}select{min-width:0;width:100%}label.ctl{width:100%}}
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <header class="top">
+    <div>
+      <div class="kicker">Colombia en Datos · Radar departamental</div>
+      <h1 id="h1">¿Dónde está cada departamento frente al país?</h1>
+      <p class="lede">Población, salud, seguridad, educación y conectividad de los 32 departamentos y Bogotá, con el dato oficial más reciente de cada fuente.</p>
+    </div>
+    <div class="stamp">Datos descargados el <span id="upd"></span><br>Cada indicador muestra su propio periodo</div>
+  </header>
+
+  <div class="controls">
+    <label class="ctl">Departamento<select id="selDep"></select></label>
+    <label class="ctl">Indicador del mapa y el ranking<select id="selInd"></select></label>
+  </div>
+
+  <section id="ficha" aria-labelledby="t-ficha">
+    <h2 id="t-ficha"></h2>
+    <p class="sub" id="ficha-sub">Valor del departamento, diferencia con el total nacional y puesto entre 33. Haz clic en una tarjeta para verla en el mapa.</p>
+    <div class="kpis" id="kpis"></div>
+  </section>
+
+  <section aria-labelledby="t-mapa">
+    <h2 id="t-mapa"></h2>
+    <p class="sub" id="mapa-sub"></p>
+    <div class="grid2">
+      <div class="card">
+        <h3>Mapa</h3>
+        <p class="meta" id="map-meta"></p>
+        <svg id="map" role="img" aria-labelledby="t-mapa"></svg>
+        <div class="legend" id="legend"></div>
+      </div>
+      <div class="card">
+        <h3>Ranking</h3>
+        <p class="meta" id="rank-meta"></p>
+        <svg id="rank" role="img" aria-label="Ranking de departamentos"></svg>
+      </div>
+    </div>
+    <p class="note" id="ind-note" hidden></p>
+    <p class="src" id="ind-src"></p>
+    <div class="toolbar">
+      <button class="btn" id="btnTable" aria-expanded="false">Ver la tabla</button>
+      <button class="btn" id="btnCsv">Descargar datos (CSV)</button>
+    </div>
+    <div id="tableBox" hidden></div>
+  </section>
+
+  <section aria-labelledby="t-scatter">
+    <h2 id="t-scatter">Brechas y contrastes</h2>
+    <p class="sub">Cruza dos indicadores. Las líneas punteadas marcan el total nacional y dividen a los departamentos en cuatro grupos. Una relación entre dos indicadores no implica que uno cause el otro.</p>
+    <div class="scatter-ctl">
+      <label class="ctl">Eje horizontal<select id="selX"></select></label>
+      <label class="ctl">Eje vertical<select id="selY"></select></label>
+    </div>
+    <svg id="scatter" role="img" aria-label="Diagrama de dispersión"></svg>
+    <p class="src" id="sc-src"></p>
+  </section>
+
+  <details class="method">
+    <summary>Metodología y fuentes</summary>
+    <p>Todas las bases se unen por el código DIVIPOLA del DANE. Las tasas por habitante usan las proyecciones de población del DANE actualizadas el 30 de julio de 2025. Se distingue el dato oficial, publicado por la fuente, del cálculo de Colombia en Datos, hecho a partir de datos oficiales. Las cifras preliminares pueden revisarse.</p>
+    <div id="methodTable"></div>
+  </details>
+
+  <footer>
+    <div class="brand">Colombia en Datos<small>Datos que conectan, decisiones que transforman.</small></div>
+    <div class="social"><span>X: @colendatos</span><span>Instagram: @coldatos</span><span>Facebook: Colombia en Datos</span><span>LinkedIn: Colombia en Datos</span></div>
+  </footer>
+</div>
+<div class="tip" id="tip" role="status" aria-live="polite"></div>
+
+<script id="inline-data" type="application/json"></script>
+<script>
+(async function(){
+  let D;
+  const inline = document.getElementById('inline-data').textContent.trim();
+  if (inline.startsWith('{')) D = JSON.parse(inline);
+  else D = await (await fetch('data.json', {cache:'no-cache'})).json();
+
+  const $ = id => document.getElementById(id);
+  const NS = 'http://www.w3.org/2000/svg';
+  const el = (tag, attrs={}, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+  const IND = Object.fromEntries(D.indicadores.map(i => [i.id, i]));
+  const DEP = Object.fromEntries(D.departamentos.map(d => [d.cod, d]));
+  const N = D.departamentos.length;
+  const params = new URLSearchParams(location.search);
+  const state = {
+    dep: DEP[params.get('dpto')] ? params.get('dpto') : '11',
+    ind: IND[params.get('ind')] ? params.get('ind') : 'homicidios_tasa',
+    x: 'internet_fijo_por_100', y: 'saber11_puntaje_global'
+  };
+  $('upd').textContent = D.actualizado;
+
+  const fmt = (v, dec) => v == null || isNaN(v) ? 'Sin dato' : v.toLocaleString('es-CO', {minimumFractionDigits: dec, maximumFractionDigits: dec});
+  const isVar = i => i.unidad === '%' && /var/i.test(i.id);
+  const fmtv = (i, v) => (isVar(i) && v > 0 ? '+' : '') + fmt(v, i.dec) + (i.unidad.startsWith('%') ? ' %' : '');
+  const unitTxt = i => i.unidad.startsWith('%') ? (i.unidad === '%' ? '' : i.unidad.replace('%', 'porcentaje')) : i.unidad;
+
+  function ranking(i){
+    const arr = Object.entries(i.v).filter(([,v]) => v != null).sort((a,b) => i.sentido === -1 ? a[1]-b[1] : b[1]-a[1]);
+    const pos = {}; arr.forEach(([c],k) => pos[c] = k+1);
+    return {arr, pos};
+  }
+  function cmpClass(i, v){
+    if (i.nacional == null || v == null || i.sentido === 0) return 'neutral';
+    const d = (v - i.nacional) * i.sentido;
+    return Math.abs(v - i.nacional) < 1e-9 ? 'neutral' : d > 0 ? 'better' : 'worse';
+  }
+  function cmpText(i, v){
+    if (v == null) return 'Sin dato para este departamento';
+    if (i.nacional == null) return 'Sin total nacional en esta base';
+    if (i.id === 'poblacion_total') return fmt(v / i.nacional * 100, 1) + ' % de la población del país';
+    const diff = v - i.nacional;
+    let rel;
+    if (i.unidad.startsWith('%') || i.unidad === '%') rel = (diff>0?'+':'') + fmt(diff, 1) + ' p.p. frente al nacional (' + fmtv(i, i.nacional) + ')';
+    else { const r = diff / i.nacional * 100; rel = (r>0?'+':'') + fmt(r, 0) + ' % frente al nacional (' + fmt(i.nacional, i.dec) + ')'; }
+    return rel;
+  }
+
+  // ---------- selectors ----------
+  const groups = [...new Set(D.indicadores.map(i => i.grupo))];
+  function fillIndSelect(sel, value){
+    sel.innerHTML = '';
+    groups.forEach(g => {
+      const og = document.createElement('optgroup'); og.label = g;
+      D.indicadores.filter(i => i.grupo === g).forEach(i => { const o = new Option(i.nombre, i.id); og.appendChild(o); });
+      sel.appendChild(og);
+    });
+    sel.value = value;
+  }
+  [...D.departamentos].sort((a,b) => a.nombre.localeCompare(b.nombre, 'es')).forEach(d => $('selDep').appendChild(new Option(d.nombre, d.cod)));
+  fillIndSelect($('selInd'), state.ind); fillIndSelect($('selX'), state.x); fillIndSelect($('selY'), state.y);
+  $('selDep').value = state.dep;
+  $('selDep').onchange = e => { state.dep = e.target.value; render(); };
+  $('selInd').onchange = e => { state.ind = e.target.value; render(); };
+  $('selX').onchange = e => { state.x = e.target.value; renderScatter(); };
+  $('selY').onchange = e => { state.y = e.target.value; renderScatter(); };
+
+  // ---------- tooltip ----------
+  const tip = $('tip');
+  function showTip(evt, html){
+    tip.innerHTML = html; tip.style.opacity = 1;
+    const pad = 14, w = tip.offsetWidth, h = tip.offsetHeight;
+    let x = evt.clientX + pad, y = evt.clientY + pad;
+    if (x + w > innerWidth - 8) x = evt.clientX - w - pad;
+    if (y + h > innerHeight - 8) y = evt.clientY - h - pad;
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  }
+  const hideTip = () => tip.style.opacity = 0;
+
+  // ---------- ficha ----------
+  function renderKpis(){
+    const d = DEP[state.dep];
+    $('t-ficha').textContent = d.nombre + ' en ' + D.kpi.length + ' indicadores';
+    const box = $('kpis'); box.innerHTML = '';
+    D.kpi.forEach(id => {
+      const i = IND[id], v = i.v[state.dep], {pos} = ranking(i);
+      const b = document.createElement('button'); b.className = 'kpi' + (id === state.ind ? ' on' : ''); b.type = 'button';
+      const cls = cmpClass(i, v);
+      const rankTxt = pos[state.dep] ? (i.sentido === 0 ? 'Puesto ' + pos[state.dep] + ' de ' + N + ' (de mayor a menor)' : 'Puesto ' + pos[state.dep] + ' de ' + N) : '';
+      b.innerHTML = `<span class="k-name">${i.nombre}</span><span class="k-val">${fmtv(i, v)}</span><span class="k-unit">${unitTxt(i)} · ${i.periodo}</span><span class="k-cmp ${cls}">${cmpText(i, v)}</span><span class="k-rank ${cls}">${rankTxt}</span>`;
+      b.onclick = () => { state.ind = id; $('selInd').value = id; render(); document.getElementById('t-mapa').scrollIntoView({behavior:'smooth', block:'start'}); };
+      box.appendChild(b);
+    });
+  }
+
+  // ---------- titles with finding ----------
+  function headline(i){
+    const {arr, pos} = ranking(i);
+    const d = DEP[state.dep], v = i.v[state.dep];
+    const top = DEP[arr[0][0]].nombre, bottom = DEP[arr[arr.length-1][0]].nombre;
+    const p = pos[state.dep];
+    if (i.sentido === 0) {
+      return `${i.nombre}: ${d.nombre} registra ${fmtv(i, v)} y ocupa el puesto ${p} de ${N}, de mayor a menor`;
+    }
+    const best = i.sentido === 1 ? 'más alto' : 'más bajo';
+    return `${i.nombre}: ${d.nombre} ocupa el puesto ${p} de ${N}; ${top} tiene el valor ${best} y ${bottom} el más rezagado`;
+  }
+
+  // ---------- map ----------
+  function quantileBreaks(vals){
+    const s = [...vals].sort((a,b)=>a-b), q = [];
+    for (let k=1;k<5;k++){ const idx = (s.length-1)*k/5, lo = Math.floor(idx), hi = Math.ceil(idx); q.push(s[lo] + (s[hi]-s[lo])*(idx-lo)); }
+    return q;
+  }
+  const RAMP = ['var(--s1)','var(--s2)','var(--s3)','var(--s4)','var(--s5)'];
+  function renderMap(){
+    const i = IND[state.ind], M = D.mapa, svg = $('map');
+    svg.innerHTML = ''; svg.setAttribute('viewBox', `0 0 ${M.w} ${M.h}`);
+    const vals = Object.values(i.v).filter(v => v != null), br = quantileBreaks(vals);
+    const cls = v => v == null ? -1 : br.findIndex(b => v <= b) === -1 ? 4 : br.findIndex(b => v <= b);
+    const defs = el('defs', {}, svg); const pat = el('pattern', {id:'nodata', width:6, height:6, patternUnits:'userSpaceOnUse', patternTransform:'rotate(45)'}, defs);
+    el('rect', {width:6, height:6, fill:'#f1f3f6'}, pat); el('line', {x1:0, y1:0, x2:0, y2:6, stroke:'#b9c1cc', 'stroke-width':1.5}, pat);
+    // inset for San Andrés
+    el('rect', {x:16, y:22, width:84, height:86, rx:6, fill:'none', stroke:'var(--line)'}, svg);
+    const t = el('text', {x:58, y:120, 'text-anchor':'middle', 'font-size':10.5, fill:'var(--ink3)'}, svg); t.textContent = 'San Andrés';
+    let selPath = null;
+    for (const [cod, f] of Object.entries(M.f)) {
+      const v = i.v[cod], c = cls(v);
+      const p = el('path', {d:f.d, class:'dept', fill: c < 0 ? 'url(#nodata)' : RAMP[c], tabindex:0, 'aria-label': `${DEP[cod].nombre}: ${fmtv(i, v)}`}, svg);
+      p.addEventListener('mousemove', e => showTip(e, `<b>${DEP[cod].nombre}</b><br>${fmtv(i, v)} ${unitTxt(i)}<br><span style="color:var(--ink3)">Puesto ${ranking(i).pos[cod] || 'sin dato'} de ${N}</span>`));
+      p.addEventListener('mouseleave', hideTip);
+      p.addEventListener('click', () => { state.dep = cod; $('selDep').value = cod; render(); });
+      p.addEventListener('keydown', e => { if (e.key === 'Enter') { state.dep = cod; $('selDep').value = cod; render(); }});
+      if (cod === state.dep) selPath = p;
+    }
+    const sa = M.f['88'], cSA = cls(i.v['88']);
+    const dot = el('circle', {cx:58, cy:62, r:9, class:'dept', fill: cSA < 0 ? 'url(#nodata)' : RAMP[cSA]}, svg);
+    dot.addEventListener('mousemove', e => showTip(e, `<b>San Andrés</b><br>${fmtv(i, i.v['88'])} ${unitTxt(i)}`)); dot.addEventListener('mouseleave', hideTip);
+    dot.addEventListener('click', () => { state.dep = '88'; $('selDep').value = '88'; render(); });
+    if (state.dep === '88') dot.classList.add('sel');
+    if (selPath) { selPath.classList.add('sel'); svg.appendChild(selPath); }
+    const lg = $('legend'); lg.innerHTML = '';
+    const lo = Math.min(...vals), hi = Math.max(...vals), edges = [lo, ...br, hi];
+    RAMP.forEach((c,k) => { lg.insertAdjacentHTML('beforeend', `<span class="li"><span class="sw" style="background:${c}"></span><span class="lab">${fmt(edges[k], i.dec)} a ${fmt(edges[k+1], i.dec)}</span></span>`); });
+    if (vals.length < N) lg.insertAdjacentHTML('beforeend', `<span class="sw" style="background:repeating-linear-gradient(45deg,#f1f3f6 0 3px,#b9c1cc 3px 4.5px)"></span><span class="lab">Sin dato</span>`);
+    $('map-meta').textContent = 'Quintiles: cada color agrupa cerca de una quinta parte de los departamentos. Más oscuro = valor más alto.';
+  }
+
+  // ---------- ranking ----------
+  function renderRank(){
+    const i = IND[state.ind], {arr} = ranking(i), svg = $('rank');
+    const W = Math.max(300, svg.parentNode.clientWidth || 520), rowH = 20, top = 22, left = W < 420 ? 132 : 150, right = 58, H = top + arr.length*rowH + 10;
+    svg.innerHTML = ''; svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const vals = arr.map(a => a[1]), min = Math.min(0, ...vals), max = Math.max(...vals, i.nacional ?? -Infinity);
+    const X = v => left + (v - min) / (max - min || 1) * (W - left - right);
+    if (min < 0) el('line', {x1:X(0), x2:X(0), y1:top-6, y2:H-6, stroke:'var(--line)'}, svg);
+    arr.forEach(([cod, v], k) => {
+      const y = top + k*rowH, sel = cod === state.dep;
+      const g = el('g', {class:'bar-row'}, svg);
+      el('rect', {x:0, y:y-2, width:W, height:rowH, fill: sel ? '#fff4e2' : 'transparent'}, g);
+      const x0 = X(Math.min(0, v) < 0 ? v : 0), x1 = X(Math.max(0, v));
+      el('rect', {x: Math.min(X(0), X(v)), y: y+3, width: Math.max(1.5, Math.abs(X(v)-X(0))), height: rowH-8, rx: 2, fill: sel ? 'var(--accent)' : 'var(--s4)'}, g);
+      const n = el('text', {x:left-8, y:y+rowH/2+1.5, 'text-anchor':'end', 'font-size':11.5, fill: sel ? 'var(--ink)' : 'var(--ink2)', 'font-weight': sel ? 700 : 400, class:'bar-name'}, g); n.textContent = (k+1) + '. ' + DEP[cod].nombre;
+      const t = el('text', {x: Math.max(X(v), X(0)) + 5, y:y+rowH/2+1.5, 'font-size':11, fill:'var(--ink2)', 'font-weight': sel ? 700 : 400}, g); t.textContent = fmtv(i, v);
+      g.addEventListener('click', () => { state.dep = cod; $('selDep').value = cod; render(); });
+      g.addEventListener('mousemove', e => showTip(e, `<b>${DEP[cod].nombre}</b><br>${fmtv(i, v)} ${unitTxt(i)}`));
+      g.addEventListener('mouseleave', hideTip);
+    });
+    if (i.nacional != null) {
+      el('line', {x1:X(i.nacional), x2:X(i.nacional), y1:top-6, y2:H-6, stroke:'var(--navy)', 'stroke-dasharray':'3 3', 'stroke-width':1.2}, svg);
+      const t = el('text', {x:X(i.nacional), y:12, 'text-anchor':'middle', 'font-size':11, 'font-weight':700, fill:'var(--navy)'}, svg); t.textContent = 'Colombia: ' + fmtv(i, i.nacional);
+    }
+    $('rank-meta').textContent = i.sentido === 0 ? 'Ordenado de mayor a menor.' : (i.sentido === 1 ? 'Ordenado del mejor al peor resultado (mayor es mejor).' : 'Ordenado del mejor al peor resultado (menor es mejor).');
+  }
+
+  // ---------- notes, sources, table ----------
+  function renderMeta(){
+    const i = IND[state.ind];
+    $('t-mapa').textContent = headline(i);
+    $('mapa-sub').textContent = `${i.nombre_largo} (${i.unidad}). Periodo: ${i.periodo}${i.estado !== 'definitivo' ? ', cifra ' + i.estado : ''}.`;
+    $('ind-note').hidden = !i.nota; $('ind-note').textContent = i.nota;
+    $('ind-src').innerHTML = `Fuente: <a href="${i.url}" target="_blank" rel="noopener">${i.fuente}</a>.${i.tipo === 'Cálculo propio' ? ' Cálculos: Colombia en Datos (' + i.calculo + ').' : ''}`;
+    if (!$('tableBox').hidden) renderTable();
+  }
+  function renderTable(){
+    const i = IND[state.ind], {arr} = ranking(i);
+    let h = `<table><caption class="sr">${i.nombre_largo}</caption><thead><tr><th>Puesto</th><th>Departamento</th><th>Región</th><th class="num">${i.nombre} (${i.unidad})</th></tr></thead><tbody>`;
+    arr.forEach(([c, v], k) => h += `<tr${c === state.dep ? ' class="sel"' : ''}><td>${k+1}</td><td>${DEP[c].nombre}</td><td>${DEP[c].region}</td><td class="num">${fmtv(i, v)}</td></tr>`);
+    if (i.nacional != null) h += `<tr><td></td><td><b>Colombia</b></td><td></td><td class="num"><b>${fmtv(i, i.nacional)}</b></td></tr>`;
+    $('tableBox').innerHTML = h + '</tbody></table>';
+  }
+  $('btnTable').onclick = () => { const b = $('tableBox'); b.hidden = !b.hidden; $('btnTable').setAttribute('aria-expanded', !b.hidden); $('btnTable').textContent = b.hidden ? 'Ver la tabla' : 'Ocultar la tabla'; if (!b.hidden) renderTable(); };
+  $('btnCsv').onclick = () => {
+    const rows = [['cod_dpto','departamento','region', ...D.indicadores.map(i => i.id)]];
+    D.departamentos.forEach(d => rows.push([d.cod, d.nombre, d.region, ...D.indicadores.map(i => i.v[d.cod] ?? '')]));
+    rows.push(['00','Colombia','', ...D.indicadores.map(i => i.nacional ?? '')]);
+    const csv = '﻿' + rows.map(r => r.map(x => `"${String(x).replace(/"/g,'""')}"`).join(',')).join('\n');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'})); a.download = 'radar-departamental-colombia-en-datos.csv'; a.click();
+  };
+  (function methodTable(){
+    let h = '<table><thead><tr><th>Indicador</th><th>Periodo</th><th>Tipo</th><th>Fuente y cálculo</th></tr></thead><tbody>';
+    D.indicadores.forEach(i => h += `<tr><td>${i.nombre_largo}</td><td>${i.periodo}</td><td>${i.tipo}</td><td><a href="${i.url}" target="_blank" rel="noopener">${i.fuente}</a>. ${i.calculo}.</td></tr>`);
+    $('methodTable').innerHTML = h + '</tbody></table>';
+  })();
+
+  // ---------- scatter ----------
+  function renderScatter(){
+    const ix = IND[state.x], iy = IND[state.y], svg = $('scatter');
+    const W = Math.max(300, svg.parentNode.clientWidth || 1000), H = W < 640 ? Math.round(W * 0.95) : 520, m = {l:W < 640 ? 52 : 70, r:16, t:22, b:56};
+    svg.innerHTML = ''; svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const pts = D.departamentos.map(d => ({c:d.cod, x:ix.v[d.cod], y:iy.v[d.cod]})).filter(p => p.x != null && p.y != null);
+    const ext = (a, n) => { let lo = Math.min(...a, n ?? Infinity), hi = Math.max(...a, n ?? -Infinity); const pad = (hi-lo)*0.06 || 1; return [lo-pad, hi+pad]; };
+    const [x0,x1] = ext(pts.map(p=>p.x), ix.nacional), [y0,y1] = ext(pts.map(p=>p.y), iy.nacional);
+    const X = v => m.l + (v-x0)/(x1-x0)*(W-m.l-m.r), Y = v => H-m.b - (v-y0)/(y1-y0)*(H-m.t-m.b);
+    const ticks = (a,b) => { const st = Math.pow(10, Math.floor(Math.log10((b-a)/5))), cand=[1,2,2.5,5,10].map(k=>k*st).find(s => (b-a)/s <= 6); const out=[]; for (let v=Math.ceil(a/cand)*cand; v<=b; v+=cand) out.push(+v.toFixed(6)); return out; };
+    ticks(x0,x1).forEach(v => { el('line',{x1:X(v),x2:X(v),y1:m.t,y2:H-m.b,stroke:'var(--grid)'},svg); const t=el('text',{x:X(v),y:H-m.b+16,'text-anchor':'middle','font-size':12,fill:'var(--ink3)'},svg); t.textContent=fmt(v, v%1?1:0); });
+    ticks(y0,y1).forEach(v => { el('line',{x1:m.l,x2:W-m.r,y1:Y(v),y2:Y(v),stroke:'var(--grid)'},svg); const t=el('text',{x:m.l-8,y:Y(v)+4,'text-anchor':'end','font-size':12,fill:'var(--ink3)'},svg); t.textContent=fmt(v, v%1?1:0); });
+    const tx = el('text',{x:(m.l+W-m.r)/2,y:H-12,'text-anchor':'middle','font-size':13,'font-weight':600,fill:'var(--ink2)'},svg); tx.textContent = `${ix.nombre} (${ix.unidad}, ${ix.periodo})`;
+    const ty = el('text',{x:16,y:(m.t+H-m.b)/2,'text-anchor':'middle','font-size':13,'font-weight':600,fill:'var(--ink2)',transform:`rotate(-90 16 ${(m.t+H-m.b)/2})`},svg); ty.textContent = `${iy.nombre} (${iy.unidad}, ${iy.periodo})`;
+    if (ix.nacional != null) el('line',{x1:X(ix.nacional),x2:X(ix.nacional),y1:m.t,y2:H-m.b,stroke:'var(--navy)','stroke-dasharray':'4 4'},svg);
+    if (iy.nacional != null) el('line',{x1:m.l,x2:W-m.r,y1:Y(iy.nacional),y2:Y(iy.nacional),stroke:'var(--navy)','stroke-dasharray':'4 4'},svg);
+    let selG = null;
+    pts.forEach(p => {
+      const sel = p.c === state.dep, g = el('g',{style:'cursor:pointer'},svg);
+      el('circle',{cx:X(p.x),cy:Y(p.y),r:16,fill:'transparent'},g);
+      el('circle',{cx:X(p.x),cy:Y(p.y),r: sel ? 8 : 6, fill: sel ? 'var(--accent)' : 'var(--s4)', 'fill-opacity': sel ? 1 : .75, stroke:'#fff','stroke-width':2},g);
+      if (sel) { const t = el('text',{x:X(p.x)+11,y:Y(p.y)-9,'font-size':13,'font-weight':700,fill:'var(--ink)'},g); t.textContent = DEP[p.c].nombre; selG = g; }
+      g.addEventListener('mousemove', e => showTip(e, `<b>${DEP[p.c].nombre}</b><br>${ix.nombre}: ${fmtv(ix,p.x)}<br>${iy.nombre}: ${fmtv(iy,p.y)}`));
+      g.addEventListener('mouseleave', hideTip);
+      g.addEventListener('click', () => { state.dep = p.c; $('selDep').value = p.c; render(); });
+    });
+    if (selG) svg.appendChild(selG);
+    const src = [...new Set([ix.fuente, iy.fuente])].join('; ');
+    $('sc-src').textContent = `Fuentes: ${src}. ${(ix.tipo === 'Cálculo propio' || iy.tipo === 'Cálculo propio') ? 'Cálculos: Colombia en Datos.' : ''}`;
+  }
+
+  function render(){
+    renderKpis(); renderMap(); renderRank(); renderMeta(); renderScatter();
+    const u = new URL(location.href); u.searchParams.set('dpto', state.dep); u.searchParams.set('ind', state.ind);
+    try { history.replaceState(null, '', u); } catch(e) {}
+    postHeight();
+  }
+  // Informa la altura a la página contenedora (útil con el elemento HTML de Wix y Velo)
+  function postHeight(){ try { parent.postMessage({type:'radar-height', height: document.documentElement.scrollHeight}, '*'); } catch(e) {} }
+  let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { renderRank(); renderScatter(); postHeight(); }, 150); });
+  render();
+})();
+</script>
+</body>
+</html>
