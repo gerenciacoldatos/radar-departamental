@@ -40,6 +40,7 @@ h3.finding{font-size:20px;line-height:1.35;color:var(--ink);margin:0 0 6px;font-
 .narrativa{max-width:860px;margin:26px auto 0;font-size:18px;line-height:1.65;color:var(--ink)}
 .narrativa p{margin:0 0 12px}
 .narrativa b{color:var(--navy)}
+.narrativa b.seg{color:var(--navy);font-weight:700;letter-spacing:.01em}
 .narrativa .nota-auto{font-size:13px;color:var(--ink3);margin-top:4px}
 .crimes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:30px 34px;margin-top:10px}
 .crime{cursor:pointer}
@@ -428,45 +429,68 @@ tr.sel td{background:var(--peach);font-weight:600}
   function comp(v, n, sentidoTxt){ if (v == null || n == null) return ''; const r = v / n; return r > 1.1 ? 'por encima del' : r < 0.9 ? 'por debajo del' : 'cerca del'; }
   function renderNarr(){
     const c = state.dep, d = DEP[c], g = id => IND[id] ? IND[id].v[c] : null, n = id => IND[id] ? IND[id].nacional : null;
-    const pos = id => ranking(IND[id]).pos[c], tot = id => Object.keys(IND[id].v).length;
-    const P = [];
-    const pob = g('poblacion_total'), share = pob / n('poblacion_total') * 100;
-    const pobTxt = pob >= 1e6 ? fmt(pob / 1e6, 1) + ' millones de habitantes' : fmt(pob, 0) + ' habitantes';
-    const ppc = g('pib_per_capita'), ppcN = n('pib_per_capita'), gr = g('pib_crec_real'), grN = n('pib_crec_real');
-    let s1 = `<b>${d.nombre}</b> tiene ${pobTxt} en 2026 (${fmt(share, 1)} % del país). Su PIB por habitante fue de <b>${fmt(ppc / 1e6, 1)} millones de pesos</b> en 2025, ${comp(ppc, ppcN)} promedio nacional (${fmt(ppcN / 1e6, 1)} millones)`;
-    if (gr != null) s1 += `, y su economía ${gr >= 0 ? 'creció' : 'se contrajo'} <b>${fmt(Math.abs(gr), 1)} %</b> en términos reales, frente a ${fmt(grN, 1)} % del país.`;
+    const pos = id => IND[id] ? ranking(IND[id]).pos[c] : null, tot = id => Object.keys(IND[id].v).length;
+    const pct = (id, dec = 1) => `${fmt(g(id), dec)}\u00a0%`, pais = (id, dec = 1) => n(id) != null ? ` (país: ${fmt(n(id), dec)}${IND[id].unidad.includes('%') ? '\u00a0%' : ''})` : '';
+    const lc = s => /^[A-ZÁÉÍÓÚ]{2}/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1);
+    const rel = (id) => { const v = g(id), m = n(id); if (v == null || m == null) return ''; const r = v / m; return r > 1.1 ? 'por encima del' : r < 0.9 ? 'por debajo del' : 'similar al'; };
+    const P = [], seg = (t, x) => P.push(`<b class="seg">${t}.</b> ${x}`);
+    // Población
+    const pob = g('poblacion_total'), share = pob / n('poblacion_total') * 100, ps = (IND.poblacion_total.serie || {})[c] || [];
+    const p18 = (ps.find(x => x[0] === '2018') || [])[1];
+    let t1 = `${d.nombre} tiene ${pob >= 1e6 ? fmt(pob / 1e6, 1) + ' millones de habitantes' : fmt(pob, 0) + ' habitantes'} en 2026, el ${fmt(share, 1)} % del país`;
+    if (p18) t1 += `, y su población ${pob >= p18 ? 'creció' : 'se redujo'} ${fmt(Math.abs(pob / p18 - 1) * 100, 1)} % desde 2018${n('poblacion_total') ? ' (país: ' + fmt(IND.poblacion_total.serie['00'].slice(-1)[0][1] / IND.poblacion_total.serie['00'][0][1] * 100 - 100, 1) + ' %)' : ''}`;
+    t1 += `. El <b>${pct('pob_60_mas_pct')}</b> de sus habitantes tiene 60 años o más${pais('pob_60_mas_pct')}, y su tasa de natalidad fue de ${fmt(g('tasa_natalidad'), 1)} nacimientos por cada 1.000 habitantes en 2025${pais('tasa_natalidad')}.`;
+    seg('Población', t1);
+    // Economía
     const RAMA = {'A': 'agricultura, ganadería y pesca', 'B': 'minería y petróleo', 'C': 'industria manufacturera', 'D + E': 'electricidad, gas y agua', 'F': 'construcción',
       'G + H + I': 'comercio, transporte, alojamiento y comida', 'J': 'información y comunicaciones', 'K': 'actividades financieras', 'L': 'actividades inmobiliarias',
       'M + N': 'actividades profesionales y administrativas', 'O + P + Q': 'administración pública, educación y salud', 'R + S + T': 'actividades artísticas y otros servicios'};
-    const rp = (D.rama_principal || {})[c];
-    if (rp && RAMA[rp[0]]) s1 += ` La actividad con mayor peso en su economía es <b>${RAMA[rp[0]]}</b> (${fmt(rp[1], 1)} % del valor agregado).`;
-    P.push(s1);
-    const pm = g('pobreza_monetaria'), ipm = g('ipm'), td = g('td');
-    let s2;
-    if (pm != null) {
-      s2 = `La pobreza monetaria alcanza al <b>${fmt(pm, 1)} %</b> de su población (país: ${fmt(n('pobreza_monetaria'), 1)} %), puesto ${pos('pobreza_monetaria')} de ${tot('pobreza_monetaria')} de menor a mayor pobreza, y la pobreza multidimensional al <b>${fmt(ipm, 1)} %</b> (país: ${fmt(n('ipm'), 1)} %).`;
-      if (td != null) s2 += ` Su tasa de desocupación fue <b>${fmt(td, 1)} %</b> en 2025 (país: ${fmt(n('td'), 1)} %).`;
-    } else {
-      s2 = `El DANE no mide la pobreza monetaria ni el mercado laboral en ${d.nombre}; la pobreza multidimensional, que sí se mide, afecta al <b>${fmt(ipm, 1)} %</b> de su población (país: ${fmt(n('ipm'), 1)} %), puesto ${pos('ipm')} de 33 de menor a mayor.`;
-    }
-    const inf = g('priv_informalidad');
-    if (inf != null) s2 += ` El <b>${fmt(inf, 1)} %</b> de sus hogares tiene al menos una persona ocupada sin afiliación a pensiones, la privación por trabajo informal del IPM (país: ${fmt(n('priv_informalidad'), 1)} %).`;
-    P.push(s2);
-    const h = g('homicidios_tasa'), hv = g('homicidios_var_ytd'), hc = g('homicidios_casos_ytd'), mes = MESES[D.ult_mes_delitos];
-    let s3 = `En seguridad, registró <b>${fmt(h, 1)} homicidios por cada 100.000 habitantes</b> en 2025 (país: ${fmt(n('homicidios_tasa'), 1)}).`;
-    if (hv != null && hc != null) {
-      const dir = Math.abs(hv) < 2 ? 'se mantuvieron estables' : (hv > 0 ? 'aumentaron ' : 'disminuyeron ') + (Math.abs(hv) < 2 ? '' : fmt(Math.abs(hv), 1) + ' %');
-      s3 += ` Entre enero y ${mes} de 2026 hubo ${fmt(hc, 0)} homicidios: ${dir} frente al mismo periodo de 2025${hc < 30 ? ', una variación que con tan pocos casos debe leerse con cautela' : ''}.`;
-    }
-    P.push(s3);
-    const cand = ['pib_per_capita', 'td', 'pobreza_monetaria', 'ipm', 'homicidios_tasa', 'cobertura_neta_media', 'saber11_puntaje_global', 'internet_fijo_por_100', 'mortalidad_infantil_tasa', 'desercion_total'];
+    const ppc = g('pib_per_capita'), gr = g('pib_crec_real'), rp = (D.rama_principal || {})[c];
+    let t2 = `Su PIB por habitante fue de <b>${fmt(ppc / 1e6, 1)} millones de pesos</b> en 2025, ${rel('pib_per_capita')} promedio nacional (${fmt(n('pib_per_capita') / 1e6, 1)} millones), puesto ${pos('pib_per_capita')} de 33`;
+    if (gr != null) t2 += `, y su economía ${gr >= 0 ? 'creció' : 'se contrajo'} <b>${fmt(Math.abs(gr), 1)} %</b> en términos reales (país: ${fmt(n('pib_crec_real'), 1)} %)`;
+    t2 += '.';
+    if (rp && RAMA[rp[0]]) t2 += ` La actividad de mayor peso es ${RAMA[rp[0]]}, con el ${fmt(rp[1], 1)} % del valor agregado.`;
+    if (g('va_minas') > 15 && rp && rp[0] !== 'B') t2 += ` La minería y el petróleo pesan ${pct('va_minas')}, muy por encima del promedio nacional (${fmt(n('va_minas'), 1)} %).`;
+    seg('Economía', t2);
+    // Trabajo y pobreza
+    let t3;
+    if (g('pobreza_monetaria') != null) {
+      t3 = `La pobreza monetaria alcanza al <b>${pct('pobreza_monetaria')}</b> de su población${pais('pobreza_monetaria')}, puesto ${pos('pobreza_monetaria')} de ${tot('pobreza_monetaria')} de menor a mayor, y la pobreza extrema al ${pct('pobreza_extrema')}${pais('pobreza_extrema')}. El ingreso per cápita del hogar fue de ${fmt(g('ingreso_pc'), 0)} pesos al mes${n('ingreso_pc') ? ' (país: ' + fmt(n('ingreso_pc'), 0) + ')' : ''}.`;
+      if (g('td') != null) t3 += ` La tasa de desocupación fue de <b>${pct('td')}</b> en 2025${pais('td')} y la de ocupación, ${pct('to')}${pais('to')}.`;
+    } else t3 = `El DANE no mide la pobreza monetaria ni el mercado laboral en ${d.nombre}.`;
+    t3 += ` La pobreza multidimensional afecta al <b>${pct('ipm')}</b> de su población${pais('ipm')}, puesto ${pos('ipm')} de 33 de menor a mayor, y el ${pct('priv_informalidad')} de los hogares tiene al menos un ocupado sin afiliación a pensiones${pais('priv_informalidad')}.`;
+    seg('Trabajo y pobreza', t3);
+    // Salud
+    let t4 = `La cobertura del aseguramiento llega al ${pct('cobertura_salud_pct')}${pais('cobertura_salud_pct')} y el ${pct('afiliados_subsidiado_pct')} de los afiliados está en el régimen subsidiado${pais('afiliados_subsidiado_pct')}. `;
+    t4 += `En 2025 se registraron <b>${fmt(g('mortalidad_infantil_tasa'), 1)} muertes de menores de un año por cada 1.000 nacidos vivos</b>${pais('mortalidad_infantil_tasa')}, y el ${pct('nac_adolescentes_pct')} de los nacimientos fue de madres de 10 a 19 años${pais('nac_adolescentes_pct')}.`;
+    seg('Salud', t4);
+    // Educación
+    let t5 = `La cobertura neta en educación media fue de <b>${pct('cobertura_neta_media')}</b> en 2024, puesto ${pos('cobertura_neta_media')} de 33, con una deserción de ${fmt(g('desercion_total'), 2)} %. `;
+    t5 += `Sus estudiantes obtuvieron <b>${fmt(g('saber11_puntaje_global'), 1)} puntos</b> en Saber 11 de 2025, ${rel('saber11_puntaje_global')} promedio nacional (${fmt(n('saber11_puntaje_global'), 1)}), y el ${pct('priv_analfabetismo')} de los hogares tiene alguna persona de 15 años o más que no sabe leer ni escribir${pais('priv_analfabetismo')}.`;
+    seg('Educación', t5);
+    // Seguridad
+    const mes = MESES[D.ult_mes_delitos], hv = g('homicidios_var_ytd'), hc = g('homicidios_casos_ytd');
+    let t6 = `Registró <b>${fmt(g('homicidios_tasa'), 1)} homicidios por cada 100.000 habitantes</b> en 2025${pais('homicidios_tasa')}`;
+    if (hv != null && hc != null) t6 += `; entre enero y ${mes} de 2026 hubo ${fmt(hc, 0)}, ${Math.abs(hv) < 2 ? 'casi los mismos' : fmt(Math.abs(hv), 1) + ' % ' + (hv > 0 ? 'más' : 'menos')} que en el mismo periodo de 2025${hc < 30 ? ' (con tan pocos casos, la variación debe leerse con cautela)' : ''}`;
+    t6 += '.';
+    const ratios = D.delitos.filter(k => k !== 'homicidios' && k !== 'secuestro').map(k => ({k, r: IND[k + '_tasa'].v[c] / IND[k + '_tasa'].nacional})).filter(x => isFinite(x.r)).sort((a, b) => b.r - a.r);
+    if (ratios.length) { const top = ratios[0], nm = IND[top.k + '_tasa'].nombre.replace(/^Tasa de /, '');
+      t6 += top.r > 1.1 ? ` Entre los demás delitos, el que más supera la tasa nacional es ${nm} (${fmt(top.r, 1)} veces).` : ` Los demás delitos denunciados tienen tasas inferiores o similares a las nacionales.`; }
+    seg('Seguridad', t6);
+    // Conectividad y vivienda
+    let t7 = `Tiene <b>${fmt(g('internet_fijo_por_100'), 1)} accesos fijos a internet por cada 100 habitantes</b>${pais('internet_fijo_por_100')}, puesto ${pos('internet_fijo_por_100')} de 33, y los accesos ${g('internet_fijo_var') >= 0 ? 'crecieron' : 'cayeron'} ${fmt(Math.abs(g('internet_fijo_var')), 1)} % en el último año.`;
+    t7 += ` En vivienda, el ${pct('priv_agua')} de los hogares no tiene fuente de agua mejorada${pais('priv_agua')}, el ${pct('priv_excretas')} tiene inadecuada eliminación de excretas${pais('priv_excretas')} y el ${pct('priv_hacinamiento')} vive en hacinamiento crítico${pais('priv_hacinamiento')}.`;
+    seg('Conectividad y vivienda', t7);
+    // Síntesis
+    const cand = ['pib_per_capita', 'td', 'pobreza_monetaria', 'ipm', 'homicidios_tasa', 'cobertura_neta_media', 'saber11_puntaje_global', 'internet_fijo_por_100', 'mortalidad_infantil_tasa', 'priv_informalidad', 'priv_agua'];
     const r = cand.filter(id => IND[id] && pos(id)).map(id => ({id, p: pos(id), t: tot(id), q: (pos(id) - 1) / (tot(id) - 1)}));
     if (r.length > 2) {
       r.sort((a, b) => a.q - b.q); const best = r[0], worst = r[r.length - 1];
-      if (worst.q - best.q > 0.25) P.push(`Su posición relativa más favorable está en <b>${IND[best.id].nombre.toLowerCase()}</b> (puesto ${best.p} de ${best.t}); la más rezagada, en <b>${IND[worst.id].nombre.toLowerCase()}</b> (puesto ${worst.p} de ${worst.t}).`);
-      else P.push(`Su posición es relativamente pareja: en los principales indicadores se ubica entre los puestos ${Math.min(...r.map(x => x.p))} y ${Math.max(...r.map(x => x.p))}.`);
+      seg('En síntesis', worst.q - best.q > 0.25
+        ? `Su posición relativa más favorable está en ${lc(IND[best.id].nombre)} (puesto ${best.p} de ${best.t}) y la más rezagada en ${lc(IND[worst.id].nombre)} (puesto ${worst.p} de ${worst.t}).`
+        : `Su posición es relativamente pareja: en los principales indicadores se ubica entre los puestos ${Math.min(...r.map(x => x.p))} y ${Math.max(...r.map(x => x.p))}.`);
     }
-    $('narrativa').innerHTML = P.map(t => `<p>${t}</p>`).join('') + '<p class="nota-auto">Lectura generada automáticamente a partir de los datos oficiales de cada fuente. No establece causas.</p>';
+    $('narrativa').innerHTML = P.map(x => `<p>${x}</p>`).join('') + '<p class="nota-auto">Lectura generada automáticamente con el dato más reciente de cada fuente oficial; cada cifra tiene su propio periodo. No establece causas.</p>';
   }
 
   // ---------- serie histórica (línea: departamento vs Colombia) ----------
