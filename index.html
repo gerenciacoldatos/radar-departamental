@@ -435,6 +435,11 @@ tr.sel td{background:var(--peach);font-weight:600}
     const ppc = g('pib_per_capita'), ppcN = n('pib_per_capita'), gr = g('pib_crec_real'), grN = n('pib_crec_real');
     let s1 = `<b>${d.nombre}</b> tiene ${pobTxt} en 2026 (${fmt(share, 1)} % del país). Su PIB por habitante fue de <b>${fmt(ppc / 1e6, 1)} millones de pesos</b> en 2025, ${comp(ppc, ppcN)} promedio nacional (${fmt(ppcN / 1e6, 1)} millones)`;
     if (gr != null) s1 += `, y su economía ${gr >= 0 ? 'creció' : 'se contrajo'} <b>${fmt(Math.abs(gr), 1)} %</b> en términos reales, frente a ${fmt(grN, 1)} % del país.`;
+    const RAMA = {'A': 'agricultura, ganadería y pesca', 'B': 'minería y petróleo', 'C': 'industria manufacturera', 'D + E': 'electricidad, gas y agua', 'F': 'construcción',
+      'G + H + I': 'comercio, transporte, alojamiento y comida', 'J': 'información y comunicaciones', 'K': 'actividades financieras', 'L': 'actividades inmobiliarias',
+      'M + N': 'actividades profesionales y administrativas', 'O + P + Q': 'administración pública, educación y salud', 'R + S + T': 'actividades artísticas y otros servicios'};
+    const rp = (D.rama_principal || {})[c];
+    if (rp && RAMA[rp[0]]) s1 += ` La actividad con mayor peso en su economía es <b>${RAMA[rp[0]]}</b> (${fmt(rp[1], 1)} % del valor agregado).`;
     P.push(s1);
     const pm = g('pobreza_monetaria'), ipm = g('ipm'), td = g('td');
     let s2;
@@ -444,6 +449,8 @@ tr.sel td{background:var(--peach);font-weight:600}
     } else {
       s2 = `El DANE no mide la pobreza monetaria ni el mercado laboral en ${d.nombre}; la pobreza multidimensional, que sí se mide, afecta al <b>${fmt(ipm, 1)} %</b> de su población (país: ${fmt(n('ipm'), 1)} %), puesto ${pos('ipm')} de 33 de menor a mayor.`;
     }
+    const inf = g('priv_informalidad');
+    if (inf != null) s2 += ` El <b>${fmt(inf, 1)} %</b> de sus hogares tiene al menos una persona ocupada sin afiliación a pensiones, la privación por trabajo informal del IPM (país: ${fmt(n('priv_informalidad'), 1)} %).`;
     P.push(s2);
     const h = g('homicidios_tasa'), hv = g('homicidios_var_ytd'), hc = g('homicidios_casos_ytd'), mes = MESES[D.ult_mes_delitos];
     let s3 = `En seguridad, registró <b>${fmt(h, 1)} homicidios por cada 100.000 habitantes</b> en 2025 (país: ${fmt(n('homicidios_tasa'), 1)}).`;
