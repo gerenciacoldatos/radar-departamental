@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Radar departamental | Colombia en Datos</title>
-<meta name="description" content="Compara los 32 departamentos y Bogotá en población, salud, seguridad, educación y conectividad con los datos oficiales más recientes.">
+<meta name="description" content="Compara los 32 departamentos y Bogotá en demografía, economía, pobreza, salud, educación, vivienda, seguridad y conectividad con los datos oficiales más recientes.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Nunito+Sans:opsz,wght@6..12,300;6..12,400;6..12,600;6..12,700&display=swap" rel="stylesheet">
@@ -106,24 +106,25 @@ tr.sel td{background:var(--peach);font-weight:600}
 <div class="wrap" id="app">
   <header class="top">
     <h1 id="h1">Radar departamental</h1>
-    <p class="lede">¿Dónde está cada departamento frente al país? Población, salud, seguridad, educación y conectividad de los 32 departamentos y Bogotá, con el dato oficial más reciente de cada fuente.</p>
+    <p class="lede">¿Dónde está cada departamento frente al país? Demografía, economía, trabajo y pobreza, salud, educación, vivienda, seguridad y conectividad de los 32 departamentos y Bogotá, con el dato oficial más reciente de cada fuente. Elige un departamento y una temática.</p>
     <p class="stamp">Datos descargados el <span id="upd"></span>. Cada indicador muestra su propio periodo.</p>
   </header>
 
   <div class="controls">
     <label class="ctl">Departamento <select id="selDep"></select></label>
-    <label class="ctl">Indicador <select id="selInd"></select></label>
+    <label class="ctl">Temática <select id="selCat"></select></label>
   </div>
   <div class="narrativa" id="narrativa" aria-live="polite"></div>
 
   <section id="ficha" aria-labelledby="t-ficha">
     <h2 id="t-ficha"></h2>
-    <p class="sub" id="ficha-sub">Valor del departamento, comparación con el total nacional y puesto entre los 33 territorios. Haz clic en un indicador para verlo en el mapa.</p>
+    <p class="sub" id="ficha-sub"></p>
     <div class="kpis" id="kpis"></div>
   </section>
 
   <section aria-labelledby="t-mapa">
     <h2>Mapa y ranking</h2>
+    <div class="scatter-ctl"><label class="ctl">Variable <select id="selInd"></select></label></div>
     <h3 class="finding" id="t-mapa"></h3>
     <p class="sub" id="mapa-sub"></p>
     <div class="grid2">
@@ -153,26 +154,21 @@ tr.sel td{background:var(--peach);font-weight:600}
     <h3 class="finding" id="t-serie"></h3>
     <p class="sub" id="serie-sub"></p>
     <div class="key"><span><i></i><b id="key-dep"></b></span><span><i class="nal"></i>Colombia</span></div>
-    <svg id="serie" role="img" aria-labelledby="t-serie"></svg>
+    <div class="crimes" id="series"></div>
+    <p class="note" id="serie-nota" hidden></p>
     <p class="src" id="serie-src"></p>
-  </section>
-
-  <section aria-labelledby="t-crimen">
-    <h2 id="t-crimen">Seguridad, delito a delito</h2>
-    <p class="sub" id="crimen-sub"></p>
-    <div class="key"><span><i></i><b id="key-dep2"></b></span><span><i class="nal"></i>Colombia</span></div>
-    <div class="crimes" id="crimes"></div>
-    <p class="src">Fuente: <a href="https://www.policia.gov.co/estadistica-delictiva" target="_blank" rel="noopener">Policía Nacional, estadística delictiva (SIEDCO)</a> y DANE, proyecciones de población. Cálculos: Colombia en Datos. Cifras provisionales hasta marzo del año siguiente.</p>
   </section>
 
   <section aria-labelledby="t-scatter">
     <h2 id="t-scatter">Brechas y contrastes</h2>
-    <p class="sub">Cruza dos indicadores. Las líneas punteadas marcan el total nacional y dividen a los departamentos en cuatro grupos. Una relación entre dos indicadores no implica que uno cause el otro.</p>
+    <h3 class="finding" id="t-sc"></h3>
+    <p class="sub" id="sc-sub"></p>
     <div class="scatter-ctl">
       <label class="ctl">Eje horizontal<select id="selX"></select></label>
       <label class="ctl">Eje vertical<select id="selY"></select></label>
     </div>
     <svg id="scatter" role="img" aria-label="Diagrama de dispersión"></svg>
+    <p class="sub" style="margin-top:12px;font-size:14px">Las líneas punteadas marcan el total nacional y dividen a los departamentos en cuatro grupos. Una relación entre dos indicadores no implica que uno cause el otro.</p>
     <p class="src" id="sc-src"></p>
   </section>
 
@@ -201,11 +197,25 @@ tr.sel td{background:var(--peach);font-weight:600}
   const DEP = Object.fromEntries(D.departamentos.map(d => [d.cod, d]));
   const N = D.departamentos.length;
   const params = new URLSearchParams(location.search);
-  const state = {
-    dep: DEP[params.get('dpto')] ? params.get('dpto') : '11',
-    ind: IND[params.get('ind')] ? params.get('ind') : 'homicidios_tasa',
-    x: 'pib_per_capita', y: 'ipm'
+  // Temáticas: indicador por defecto en el mapa y par de variables de "Brechas y contrastes".
+  // El par se eligió por ser el que mejor resume la temática; la correlación se calcula en vivo.
+  const CAT = {
+    '': {ind: 'pobreza_monetaria', x: 'pib_per_capita', y: 'ipm', why: 'Ingreso y pobreza resumen buena parte de las diferencias entre territorios: los departamentos con más PIB por habitante tienden a tener menos pobreza multidimensional, pero no todos siguen esa regla.'},
+    'Demografía': {ind: 'indice_envejecimiento', x: 'indice_envejecimiento', y: 'tasa_natalidad', why: 'El envejecimiento y la natalidad son las dos caras de la transición demográfica: donde nacen menos niños, la población mayor gana peso.'},
+    'Economía': {ind: 'pib_per_capita', x: 'va_publico', y: 'pib_per_capita', why: 'El peso de la administración pública, la educación y la salud en la economía distingue a los departamentos con poca actividad productiva privada de los de mayor PIB por habitante.'},
+    'Trabajo y pobreza': {ind: 'pobreza_monetaria', x: 'priv_informalidad', y: 'pobreza_monetaria', why: 'La informalidad laboral es la privación más extendida del país y la que más se mueve junto con la pobreza monetaria entre departamentos.'},
+    'Salud': {ind: 'mortalidad_infantil_tasa', x: 'nac_adolescentes_pct', y: 'mortalidad_infantil_tasa', why: 'El embarazo adolescente y la mortalidad infantil son dos indicadores de salud materno-infantil que tienden a ser más altos en los mismos territorios.'},
+    'Educación': {ind: 'saber11_puntaje_global', x: 'cobertura_neta_media', y: 'saber11_puntaje_global', why: 'Acceso y calidad: los departamentos donde más jóvenes llegan a la educación media también tienden a obtener mejores puntajes en Saber 11.'},
+    'Vivienda y servicios': {ind: 'priv_agua', x: 'priv_agua', y: 'priv_excretas', why: 'Las carencias de agua y saneamiento casi siempre aparecen juntas, porque dependen de la misma infraestructura de acueducto y alcantarillado.'},
+    'Seguridad': {ind: 'homicidios_tasa', x: 'homicidios_tasa', y: 'extorsion_tasa', why: 'Homicidio y extorsión son dos delitos asociados a la presencia de economías ilegales y grupos armados; cruzarlos ayuda a distinguir territorios con violencia letal de aquellos con presión económica.'},
+    'Conectividad': {ind: 'internet_fijo_por_100', x: 'pib_per_capita', y: 'internet_fijo_por_100', why: 'La penetración de internet fijo sigue de cerca al nivel de ingreso del territorio: la brecha digital es también una brecha económica.'}
   };
+  const groupsAll = [...new Set(D.indicadores.filter(i => !i.oculto).map(i => i.grupo))];
+  const pCat = params.get('tema') || '';
+  const state = { dep: DEP[params.get('dpto')] ? params.get('dpto') : '11', cat: groupsAll.includes(pCat) ? pCat : '' };
+  state.ind = IND[params.get('ind')] && (!state.cat || IND[params.get('ind')].grupo === state.cat) ? params.get('ind') : CAT[state.cat].ind;
+  state.x = CAT[state.cat].x; state.y = CAT[state.cat].y;
+  const catInds = cat => D.indicadores.filter(i => !i.oculto && (!cat || i.grupo === cat));
   $('upd').textContent = D.actualizado;
 
   const fmt = (v, dec) => v == null || isNaN(v) ? 'Sin dato' : v.toLocaleString('es-CO', {minimumFractionDigits: dec, maximumFractionDigits: dec});
@@ -235,10 +245,9 @@ tr.sel td{background:var(--peach);font-weight:600}
   }
 
   // ---------- selectors ----------
-  const groups = [...new Set(D.indicadores.filter(i => !i.oculto).map(i => i.grupo))];
-  function fillIndSelect(sel, value){
+  function fillIndSelect(sel, value, cat){
     sel.innerHTML = '';
-    groups.forEach(g => {
+    groupsAll.filter(g => !cat || g === cat).forEach(g => {
       const og = document.createElement('optgroup'); og.label = g;
       D.indicadores.filter(i => i.grupo === g && !i.oculto).forEach(i => { const o = new Option(i.nombre, i.id); og.appendChild(o); });
       sel.appendChild(og);
@@ -246,10 +255,20 @@ tr.sel td{background:var(--peach);font-weight:600}
     sel.value = value;
   }
   [...D.departamentos].sort((a,b) => a.nombre.localeCompare(b.nombre, 'es')).forEach(d => $('selDep').appendChild(new Option(d.nombre, d.cod)));
-  fillIndSelect($('selInd'), state.ind); fillIndSelect($('selX'), state.x); fillIndSelect($('selY'), state.y);
+  $('selCat').appendChild(new Option('Todas las temáticas', ''));
+  groupsAll.forEach(g => $('selCat').appendChild(new Option(g, g)));
+  $('selCat').value = state.cat;
+  fillIndSelect($('selInd'), state.ind, state.cat); fillIndSelect($('selX'), state.x); fillIndSelect($('selY'), state.y);
   $('selDep').value = state.dep;
   $('selDep').onchange = e => { state.dep = e.target.value; render(); };
-  $('selInd').onchange = e => { state.ind = e.target.value; render(); };
+  $('selCat').onchange = e => {
+    state.cat = e.target.value; const c = CAT[state.cat];
+    state.ind = c.ind; state.x = c.x; state.y = c.y;
+    fillIndSelect($('selInd'), state.ind, state.cat); $('selX').value = state.x; $('selY').value = state.y;
+    render();
+  };
+  const pickInd = id => { state.ind = id; $('selInd').value = id; render(); };
+  $('selInd').onchange = e => pickInd(e.target.value);
   $('selX').onchange = e => { state.x = e.target.value; renderScatter(); };
   $('selY').onchange = e => { state.y = e.target.value; renderScatter(); };
 
@@ -270,13 +289,16 @@ tr.sel td{background:var(--peach);font-weight:600}
     const d = DEP[state.dep];
     $('t-ficha').textContent = d.nombre + ', dato a dato';
     const box = $('kpis'); box.innerHTML = '';
-    D.kpi.forEach(id => {
+    const ids = state.cat ? catInds(state.cat).map(i => i.id) : D.kpi;
+    $('ficha-sub').textContent = (state.cat ? `Todos los indicadores de ${state.cat.toLowerCase()}. ` : 'Un indicador clave por temática. ')
+      + 'Valor del departamento, comparación con el total nacional y puesto entre los territorios con dato. Haz clic en un indicador para verlo en el mapa.';
+    ids.forEach(id => {
       const i = IND[id], v = i.v[state.dep], {pos} = ranking(i);
       const b = document.createElement('button'); b.className = 'kpi' + (id === state.ind ? ' on' : ''); b.type = 'button';
       const cls = cmpClass(i, v);
       const nI = Object.keys(i.v).length; const rankTxt = pos[state.dep] ? (i.sentido === 0 ? 'Puesto ' + pos[state.dep] + ' de ' + nI + ' por valor' : 'Puesto ' + pos[state.dep] + ' de ' + nI) : '';
       b.innerHTML = `<span class="k-name">${i.nombre}</span><span class="k-val">${fmtv(i, v)}</span><span class="k-unit">${unitTxt(i) ? unitTxt(i) + ' · ' : ''}${i.periodo}</span><span class="k-cmp ${cls}">${cmpText(i, v)}</span><span class="k-rank ${cls}">${rankTxt}</span>`;
-      b.onclick = () => { state.ind = id; $('selInd').value = id; render(); document.getElementById('t-mapa').scrollIntoView({behavior:'smooth', block:'start'}); };
+      b.onclick = () => { pickInd(id); $('t-mapa').scrollIntoView({behavior:'smooth', block:'start'}); };
       box.appendChild(b);
     });
   }
@@ -331,7 +353,7 @@ tr.sel td{background:var(--peach);font-weight:600}
     if (selPath) { selPath.classList.add('sel'); svg.appendChild(selPath); }
     const lg = $('legend'); lg.innerHTML = '';
     const lo = Math.min(...vals), hi = Math.max(...vals), edges = [lo, ...br, hi];
-    RAMP.forEach((c,k) => { lg.insertAdjacentHTML('beforeend', `<span class="li"><span class="sw" style="background:${c}"></span><span class="lab">${fmt(edges[k], i.dec)} a ${fmt(edges[k+1], i.dec)}</span></span>`); });
+    RAMP.forEach((c,k) => { lg.insertAdjacentHTML('beforeend', `<span class="li"><span class="sw" style="background:${c}"></span><span class="lab">${i.unidad === 'pesos' ? fmt(edges[k] / 1e6, 1) + ' M' : fmt(edges[k], i.dec)} a ${i.unidad === 'pesos' ? fmt(edges[k+1] / 1e6, 1) + ' M' : fmt(edges[k+1], i.dec)}</span></span>`); });
     if (vals.length < N) lg.insertAdjacentHTML('beforeend', `<span class="sw" style="background:repeating-linear-gradient(45deg,#f1f3f6 0 3px,#b9c1cc 3px 4.5px)"></span><span class="lab">Sin dato</span>`);
     $('map-meta').textContent = 'Cada tono agrupa cerca de una quinta parte de los departamentos. Más oscuro, valor más alto.';
   }
@@ -420,6 +442,15 @@ tr.sel td{background:var(--peach);font-weight:600}
       g.addEventListener('click', () => { state.dep = p.c; $('selDep').value = p.c; render(); });
     });
     if (selG) svg.appendChild(selG);
+    // Lectura en lenguaje sencillo: correlación de Pearson entre territorios (cálculo propio)
+    const nP = pts.length, mx = pts.reduce((a,p)=>a+p.x,0)/nP, my = pts.reduce((a,p)=>a+p.y,0)/nP;
+    const cov = pts.reduce((a,p)=>a+(p.x-mx)*(p.y-my),0), r = cov / Math.sqrt(pts.reduce((a,p)=>a+(p.x-mx)**2,0) * pts.reduce((a,p)=>a+(p.y-my)**2,0));
+    const ar = Math.abs(r), fuerza = ar >= 0.7 ? 'fuerte' : ar >= 0.4 ? 'moderada' : 'débil';
+    const preset = state.x === CAT[state.cat].x && state.y === CAT[state.cat].y;
+    $('t-sc').textContent = ar < 0.2 ? `${ix.nombre} y ${lc0(iy.nombre)}: no se observa una relación clara entre los ${nP} territorios`
+      : `${ix.nombre} y ${lc0(iy.nombre)} se mueven ${r > 0 ? 'en la misma dirección' : 'en direcciones opuestas'}: relación ${fuerza} entre los ${nP} territorios`;
+    const q = (() => { const p = pts.find(p => p.c === state.dep); if (!p || ix.nacional == null || iy.nacional == null) return ''; return ` ${DEP[state.dep].nombre} está ${p.x >= ix.nacional ? 'por encima' : 'por debajo'} del nacional en ${lc0(ix.nombre)} y ${p.y >= iy.nacional ? 'por encima' : 'por debajo'} en ${lc0(iy.nombre)}.`; })();
+    $('sc-sub').textContent = (preset ? CAT[state.cat].why + ' ' : '') + `Coeficiente de correlación: ${fmt(r, 2)} (de -1 a 1; cálculo de Colombia en Datos).` + q + (preset ? ' Puedes cambiar los ejes.' : '');
     const src = [...new Set([ix.fuente, iy.fuente])].join('; ');
     $('sc-src').textContent = `Fuentes: ${src}. ${(ix.tipo === 'Cálculo propio' || iy.tipo === 'Cálculo propio') ? 'Cálculos: Colombia en Datos.' : ''}`;
   }
@@ -430,65 +461,128 @@ tr.sel td{background:var(--peach);font-weight:600}
   function renderNarr(){
     const c = state.dep, d = DEP[c], g = id => IND[id] ? IND[id].v[c] : null, n = id => IND[id] ? IND[id].nacional : null;
     const pos = id => IND[id] ? ranking(IND[id]).pos[c] : null, tot = id => Object.keys(IND[id].v).length;
-    const pct = (id, dec = 1) => `${fmt(g(id), dec)}\u00a0%`, pais = (id, dec = 1) => n(id) != null ? ` (país: ${fmt(n(id), dec)}${IND[id].unidad.includes('%') ? '\u00a0%' : ''})` : '';
+    const pct = (id, dec = 1) => `${fmt(g(id), dec)} %`, pais = (id, dec = 1) => n(id) != null ? ` (país: ${fmt(n(id), dec)}${IND[id].unidad.includes('%') ? ' %' : ''})` : '';
     const lc = s => /^[A-ZÁÉÍÓÚ]{2}/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1);
     const rel = (id) => { const v = g(id), m = n(id); if (v == null || m == null) return ''; const r = v / m; return r > 1.1 ? 'por encima del' : r < 0.9 ? 'por debajo del' : 'similar al'; };
-    const P = [], seg = (t, x) => P.push(`<b class="seg">${t}.</b> ${x}`);
-    // Población
-    const pob = g('poblacion_total'), share = pob / n('poblacion_total') * 100, ps = (IND.poblacion_total.serie || {})[c] || [];
-    const p18 = (ps.find(x => x[0] === '2018') || [])[1];
-    let t1 = `${d.nombre} tiene ${pob >= 1e6 ? fmt(pob / 1e6, 1) + ' millones de habitantes' : fmt(pob, 0) + ' habitantes'} en 2026, el ${fmt(share, 1)} % del país`;
-    if (p18) t1 += `, y su población ${pob >= p18 ? 'creció' : 'se redujo'} ${fmt(Math.abs(pob / p18 - 1) * 100, 1)} % desde 2018${n('poblacion_total') ? ' (país: ' + fmt(IND.poblacion_total.serie['00'].slice(-1)[0][1] / IND.poblacion_total.serie['00'][0][1] * 100 - 100, 1) + ' %)' : ''}`;
-    t1 += `. El <b>${pct('pob_60_mas_pct')}</b> de sus habitantes tiene 60 años o más${pais('pob_60_mas_pct')}, y su tasa de natalidad fue de ${fmt(g('tasa_natalidad'), 1)} nacimientos por cada 1.000 habitantes en 2025${pais('tasa_natalidad')}.`;
-    seg('Población', t1);
-    // Economía
+    const full = !!state.cat;   // con una temática elegida, la narrativa se amplía
+    const S = {};
+    // Demografía
+    S['Demografía'] = () => {
+      const pob = g('poblacion_total'), share = pob / n('poblacion_total') * 100, ps = (IND.poblacion_total.serie || {})[c] || [];
+      const p18 = (ps.find(x => x[0] === '2018') || [])[1], sn = IND.poblacion_total.serie['00'];
+      let t = `${d.nombre} tiene ${pob >= 1e6 ? fmt(pob / 1e6, 1) + ' millones de habitantes' : fmt(pob, 0) + ' habitantes'} en 2026, el ${fmt(share, 1)} % del país`;
+      if (p18) t += `, y su población ${pob >= p18 ? 'creció' : 'se redujo'} ${fmt(Math.abs(pob / p18 - 1) * 100, 1)} % desde 2018 (país: ${fmt(sn[sn.length - 1][1] / sn[0][1] * 100 - 100, 1)} %)`;
+      t += `. El <b>${pct('pob_60_mas_pct')}</b> de sus habitantes tiene 60 años o más${pais('pob_60_mas_pct')}, y su tasa de natalidad fue de ${fmt(g('tasa_natalidad'), 1)} nacimientos por cada 1.000 habitantes en 2025${pais('tasa_natalidad')}.`;
+      if (full) {
+        const ie = g('indice_envejecimiento'), s6 = (IND.indice_envejecimiento.serie || {})[c] || [];
+        t += ` Hay <b>${fmt(ie, 0)} personas de 60 años o más por cada 100 menores de 15</b>${pais('indice_envejecimiento', 0)}, puesto ${pos('indice_envejecimiento')} de 33 de mayor a menor`;
+        if (s6.length > 1) t += `; en 2018 eran ${fmt(s6[0][1], 0)}`;
+        const nv = g('nacimientos_var_ytd');
+        t += `.${nv != null ? ` Entre enero y julio de 2026 los nacimientos ${nv >= 0 ? 'aumentaron' : 'cayeron'} ${fmt(Math.abs(nv), 1)} % frente al mismo periodo de 2025${pais('nacimientos_var_ytd')}, según cifras preliminares.` : ''}`;
+      }
+      return t;
+    };
     const RAMA = {'A': 'agricultura, ganadería y pesca', 'B': 'minería y petróleo', 'C': 'industria manufacturera', 'D + E': 'electricidad, gas y agua', 'F': 'construcción',
       'G + H + I': 'comercio, transporte, alojamiento y comida', 'J': 'información y comunicaciones', 'K': 'actividades financieras', 'L': 'actividades inmobiliarias',
       'M + N': 'actividades profesionales y administrativas', 'O + P + Q': 'administración pública, educación y salud', 'R + S + T': 'actividades artísticas y otros servicios'};
-    const ppc = g('pib_per_capita'), gr = g('pib_crec_real'), rp = (D.rama_principal || {})[c];
-    let t2 = `Su PIB por habitante fue de <b>${fmt(ppc / 1e6, 1)} millones de pesos</b> en 2025, ${rel('pib_per_capita')} promedio nacional (${fmt(n('pib_per_capita') / 1e6, 1)} millones), puesto ${pos('pib_per_capita')} de 33`;
-    if (gr != null) t2 += `, y su economía ${gr >= 0 ? 'creció' : 'se contrajo'} <b>${fmt(Math.abs(gr), 1)} %</b> en términos reales (país: ${fmt(n('pib_crec_real'), 1)} %)`;
-    t2 += '.';
-    if (rp && RAMA[rp[0]]) t2 += ` La actividad de mayor peso es ${RAMA[rp[0]]}, con el ${fmt(rp[1], 1)} % del valor agregado.`;
-    if (g('va_minas') > 15 && rp && rp[0] !== 'B') t2 += ` La minería y el petróleo pesan ${pct('va_minas')}, muy por encima del promedio nacional (${fmt(n('va_minas'), 1)} %).`;
-    seg('Economía', t2);
-    // Trabajo y pobreza
-    let t3;
-    if (g('pobreza_monetaria') != null) {
-      t3 = `La pobreza monetaria alcanza al <b>${pct('pobreza_monetaria')}</b> de su población${pais('pobreza_monetaria')}, puesto ${pos('pobreza_monetaria')} de ${tot('pobreza_monetaria')} de menor a mayor, y la pobreza extrema al ${pct('pobreza_extrema')}${pais('pobreza_extrema')}. El ingreso per cápita del hogar fue de ${fmt(g('ingreso_pc'), 0)} pesos al mes${n('ingreso_pc') ? ' (país: ' + fmt(n('ingreso_pc'), 0) + ')' : ''}.`;
-      if (g('td') != null) t3 += ` La tasa de desocupación fue de <b>${pct('td')}</b> en 2025${pais('td')} y la de ocupación, ${pct('to')}${pais('to')}.`;
-    } else t3 = `El DANE no mide la pobreza monetaria ni el mercado laboral en ${d.nombre}.`;
-    t3 += ` La pobreza multidimensional afecta al <b>${pct('ipm')}</b> de su población${pais('ipm')}, puesto ${pos('ipm')} de 33 de menor a mayor, y el ${pct('priv_informalidad')} de los hogares tiene al menos un ocupado sin afiliación a pensiones${pais('priv_informalidad')}.`;
-    seg('Trabajo y pobreza', t3);
-    // Salud
-    let t4 = `La cobertura del aseguramiento llega al ${pct('cobertura_salud_pct')}${pais('cobertura_salud_pct')} y el ${pct('afiliados_subsidiado_pct')} de los afiliados está en el régimen subsidiado${pais('afiliados_subsidiado_pct')}. `;
-    t4 += `En 2025 se registraron <b>${fmt(g('mortalidad_infantil_tasa'), 1)} muertes de menores de un año por cada 1.000 nacidos vivos</b>${pais('mortalidad_infantil_tasa')}, y el ${pct('nac_adolescentes_pct')} de los nacimientos fue de madres de 10 a 19 años${pais('nac_adolescentes_pct')}.`;
-    seg('Salud', t4);
-    // Educación
-    let t5 = `La cobertura neta en educación media fue de <b>${pct('cobertura_neta_media')}</b> en 2024, puesto ${pos('cobertura_neta_media')} de 33, con una deserción de ${fmt(g('desercion_total'), 2)} %. `;
-    t5 += `Sus estudiantes obtuvieron <b>${fmt(g('saber11_puntaje_global'), 1)} puntos</b> en Saber 11 de 2025, ${rel('saber11_puntaje_global')} promedio nacional (${fmt(n('saber11_puntaje_global'), 1)}), y el ${pct('priv_analfabetismo')} de los hogares tiene alguna persona de 15 años o más que no sabe leer ni escribir${pais('priv_analfabetismo')}.`;
-    seg('Educación', t5);
-    // Seguridad
-    const mes = MESES[D.ult_mes_delitos], hv = g('homicidios_var_ytd'), hc = g('homicidios_casos_ytd');
-    let t6 = `Registró <b>${fmt(g('homicidios_tasa'), 1)} homicidios por cada 100.000 habitantes</b> en 2025${pais('homicidios_tasa')}`;
-    if (hv != null && hc != null) t6 += `; entre enero y ${mes} de 2026 hubo ${fmt(hc, 0)}, ${Math.abs(hv) < 2 ? 'casi los mismos' : fmt(Math.abs(hv), 1) + ' % ' + (hv > 0 ? 'más' : 'menos')} que en el mismo periodo de 2025${hc < 30 ? ' (con tan pocos casos, la variación debe leerse con cautela)' : ''}`;
-    t6 += '.';
-    const ratios = D.delitos.filter(k => k !== 'homicidios' && k !== 'secuestro').map(k => ({k, r: IND[k + '_tasa'].v[c] / IND[k + '_tasa'].nacional})).filter(x => isFinite(x.r)).sort((a, b) => b.r - a.r);
-    if (ratios.length) { const top = ratios[0], nm = IND[top.k + '_tasa'].nombre.replace(/^Tasa de /, '');
-      t6 += top.r > 1.1 ? ` Entre los demás delitos, el que más supera la tasa nacional es ${nm} (${fmt(top.r, 1)} veces).` : ` Los demás delitos denunciados tienen tasas inferiores o similares a las nacionales.`; }
-    seg('Seguridad', t6);
-    // Conectividad y vivienda
-    let t7 = `Tiene <b>${fmt(g('internet_fijo_por_100'), 1)} accesos fijos a internet por cada 100 habitantes</b>${pais('internet_fijo_por_100')}, puesto ${pos('internet_fijo_por_100')} de 33, y los accesos ${g('internet_fijo_var') >= 0 ? 'crecieron' : 'cayeron'} ${fmt(Math.abs(g('internet_fijo_var')), 1)} % en el último año.`;
-    t7 += ` En vivienda, el ${pct('priv_agua')} de los hogares no tiene fuente de agua mejorada${pais('priv_agua')}, el ${pct('priv_excretas')} tiene inadecuada eliminación de excretas${pais('priv_excretas')} y el ${pct('priv_hacinamiento')} vive en hacinamiento crítico${pais('priv_hacinamiento')}.`;
-    seg('Conectividad y vivienda', t7);
-    // Síntesis
-    const cand = ['pib_per_capita', 'td', 'pobreza_monetaria', 'ipm', 'homicidios_tasa', 'cobertura_neta_media', 'saber11_puntaje_global', 'internet_fijo_por_100', 'mortalidad_infantil_tasa', 'priv_informalidad', 'priv_agua'];
-    const r = cand.filter(id => IND[id] && pos(id)).map(id => ({id, p: pos(id), t: tot(id), q: (pos(id) - 1) / (tot(id) - 1)}));
+    S['Economía'] = () => {
+      const ppc = g('pib_per_capita'), gr = g('pib_crec_real'), rp = (D.rama_principal || {})[c];
+      let t = `Su PIB por habitante fue de <b>${fmt(ppc / 1e6, 1)} millones de pesos</b> en 2025, ${rel('pib_per_capita')} promedio nacional (${fmt(n('pib_per_capita') / 1e6, 1)} millones), puesto ${pos('pib_per_capita')} de 33`;
+      if (gr != null) t += `, y su economía ${gr >= 0 ? 'creció' : 'se contrajo'} <b>${fmt(Math.abs(gr), 1)} %</b> en términos reales (país: ${fmt(n('pib_crec_real'), 1)} %)`;
+      t += '.';
+      if (rp && RAMA[rp[0]]) t += ` La actividad de mayor peso es ${RAMA[rp[0]]}, con el ${fmt(rp[1], 1)} % del valor agregado.`;
+      if (g('va_minas') > 15 && rp && rp[0] !== 'B') t += ` La minería y el petróleo pesan ${pct('va_minas')}, muy por encima del promedio nacional (${fmt(n('va_minas'), 1)} %).`;
+      if (full) {
+        t += ` Aporta el ${pct('pib_participacion')} del PIB nacional. En su estructura, el agro pesa ${pct('va_agro')}${pais('va_agro')}, la industria ${pct('va_industria')}${pais('va_industria')} y la administración pública, la educación y la salud ${pct('va_publico')}${pais('va_publico')}.`;
+        const sg = ((IND.pib_crec_real.serie || {})[c] || []).filter(x => parseInt(x[0]) >= 2016);
+        if (sg.length > 3) { const m = sg.reduce((a, x) => a + x[1], 0) / sg.length, sn = (IND.pib_crec_real.serie['00'] || []).filter(x => parseInt(x[0]) >= 2016), mn = sn.reduce((a, x) => a + x[1], 0) / sn.length;
+          t += ` Entre ${parseInt(sg[0][0])} y ${parseInt(sg[sg.length - 1][0])}, su crecimiento real promedio fue de ${fmt(m, 1)} % al año (país: ${fmt(mn, 1)} %), un promedio simple que incluye la caída de 2020.`; }
+      }
+      return t;
+    };
+    S['Trabajo y pobreza'] = () => {
+      let t;
+      if (g('pobreza_monetaria') != null) {
+        t = `La pobreza monetaria alcanza al <b>${pct('pobreza_monetaria')}</b> de su población${pais('pobreza_monetaria')}, puesto ${pos('pobreza_monetaria')} de ${tot('pobreza_monetaria')} de menor a mayor, y la pobreza extrema al ${pct('pobreza_extrema')}${pais('pobreza_extrema')}. El ingreso per cápita del hogar fue de ${fmt(g('ingreso_pc'), 0)} pesos al mes${n('ingreso_pc') ? ' (país: ' + fmt(n('ingreso_pc'), 0) + ')' : ''}.`;
+        if (g('td') != null) t += ` La tasa de desocupación fue de <b>${pct('td')}</b> en 2025${pais('td')} y la de ocupación, ${pct('to')}${pais('to')}.`;
+      } else t = `El DANE no mide la pobreza monetaria ni el mercado laboral en ${d.nombre}.`;
+      t += ` La pobreza multidimensional afecta al <b>${pct('ipm')}</b> de su población${pais('ipm')}, puesto ${pos('ipm')} de 33 de menor a mayor, y el ${pct('priv_informalidad')} de los hogares tiene al menos un ocupado sin afiliación a pensiones${pais('priv_informalidad')}.`;
+      if (full) {
+        if (g('gini') != null) t += ` El coeficiente de Gini, que mide la desigualdad del ingreso de 0 a 1, es ${fmt(g('gini'), 3)}${n('gini') != null ? ' (país: ' + fmt(n('gini'), 3) + ')' : ''}, y la tasa global de participación, ${pct('tgp')}${pais('tgp')}.`;
+        const si = ((IND.ipm.serie || {})[c] || []); if (si.length > 1) { const a0 = si[0], a1 = si[si.length - 1];
+          t += ` Desde ${a0[0]}, la pobreza multidimensional ${a1[1] < a0[1] ? 'bajó' : 'subió'} de ${fmt(a0[1], 1)} % a ${fmt(a1[1], 1)} %.`; }
+        t += ` El ${pct('priv_trabajo_infantil')} de los hogares tiene niños de 12 a 17 años trabajando${pais('priv_trabajo_infantil')}.`;
+      }
+      return t;
+    };
+    S['Salud'] = () => {
+      let t = `La cobertura del aseguramiento llega al ${pct('cobertura_salud_pct')}${pais('cobertura_salud_pct')} y el ${pct('afiliados_subsidiado_pct')} de los afiliados está en el régimen subsidiado${pais('afiliados_subsidiado_pct')}. `;
+      t += `En 2025 se registraron <b>${fmt(g('mortalidad_infantil_tasa'), 1)} muertes de menores de un año por cada 1.000 nacidos vivos</b>${pais('mortalidad_infantil_tasa')}, y el ${pct('nac_adolescentes_pct')} de los nacimientos fue de madres de 10 a 19 años${pais('nac_adolescentes_pct')}.`;
+      if (full) {
+        t += ` El ${pct('priv_barreras_salud')} de los hogares reporta barreras de acceso a servicios de salud${pais('priv_barreras_salud')}. La tasa de mortalidad general fue de ${fmt(g('tasa_mortalidad_general'), 1)} por cada 1.000 habitantes${pais('tasa_mortalidad_general')}, una cifra que depende de la edad de la población.`;
+        const cv = g('afiliados_contributivo_var'); if (cv != null) t += ` En el último año, los afiliados al régimen contributivo ${cv >= 0 ? 'aumentaron' : 'disminuyeron'} ${fmt(Math.abs(cv), 1)} %${pais('afiliados_contributivo_var')}.`;
+        t += ' La mortalidad infantil es registrada y no se ajusta por subregistro, por lo que puede subestimar la real donde el registro es incompleto.';
+      }
+      return t;
+    };
+    S['Educación'] = () => {
+      let t = `La cobertura neta en educación media fue de <b>${pct('cobertura_neta_media')}</b> en 2024${pais('cobertura_neta_media')}, puesto ${pos('cobertura_neta_media')} de 33, con una deserción de ${fmt(g('desercion_total'), 2)} %. `;
+      t += `Sus estudiantes obtuvieron <b>${fmt(g('saber11_puntaje_global'), 1)} puntos</b> en Saber 11 de 2025, ${rel('saber11_puntaje_global')} promedio nacional (${fmt(n('saber11_puntaje_global'), 1)}), y el ${pct('priv_analfabetismo')} de los hogares tiene alguna persona de 15 años o más que no sabe leer ni escribir${pais('priv_analfabetismo')}.`;
+      if (full) {
+        t += ` En transición, el primer grado escolar, la cobertura neta fue de ${pct('cobertura_neta_transicion')}${pais('cobertura_neta_transicion')}, y la repitencia, de ${pct('repitencia_total')}${pais('repitencia_total')}. El ${pct('priv_bajo_logro')} de los hogares tiene un bajo logro educativo, es decir, sus integrantes de 15 años o más tienen en promedio menos de 9 años de educación${pais('priv_bajo_logro')}.`;
+        const ss = ((IND.saber11_puntaje_global.serie || {})[c] || []); if (ss.length > 1) t += ` Su puntaje en Saber 11 pasó de ${fmt(ss[0][1], 1)} en ${ss[0][0]} a ${fmt(ss[ss.length - 1][1], 1)} en ${ss[ss.length - 1][0]}.`;
+      }
+      return t;
+    };
+    S['Vivienda y servicios'] = () => {
+      let t = `El <b>${pct('priv_agua')}</b> de los hogares no tiene acceso a una fuente de agua mejorada${pais('priv_agua')}, el ${pct('priv_excretas')} tiene una eliminación inadecuada de excretas${pais('priv_excretas')} y el ${pct('priv_hacinamiento')} vive en hacinamiento crítico${pais('priv_hacinamiento')}.`;
+      if (full) {
+        t += ` En acceso a agua ocupa el puesto ${pos('priv_agua')} de 33, de menor a mayor privación; en saneamiento, el ${pos('priv_excretas')}, y en hacinamiento, el ${pos('priv_hacinamiento')}.`;
+        const sa = ((IND.priv_agua.serie || {})[c] || []); if (sa.length > 1) t += ` La privación de agua pasó de ${fmt(sa[0][1], 1)} % en ${sa[0][0]} a ${fmt(sa[sa.length - 1][1], 1)} % en ${sa[sa.length - 1][0]}.`;
+        t += ' Estas cifras provienen de la medición de pobreza multidimensional del DANE.';
+      }
+      return t;
+    };
+    S['Seguridad'] = () => {
+      const mes = MESES[D.ult_mes_delitos], hv = g('homicidios_var_ytd'), hc = g('homicidios_casos_ytd');
+      let t = `Registró <b>${fmt(g('homicidios_tasa'), 1)} homicidios por cada 100.000 habitantes</b> en 2025${pais('homicidios_tasa')}`;
+      if (hv != null && hc != null) t += `; entre enero y ${mes} de 2026 hubo ${fmt(hc, 0)}, ${Math.abs(hv) < 2 ? 'casi los mismos' : fmt(Math.abs(hv), 1) + ' % ' + (hv > 0 ? 'más' : 'menos')} que en el mismo periodo de 2025${hc < 30 ? ' (con tan pocos casos, la variación debe leerse con cautela)' : ''}`;
+      t += '.';
+      const ratios = D.delitos.filter(k => k !== 'homicidios' && k !== 'secuestro').map(k => ({k, r: IND[k + '_tasa'].v[c] / IND[k + '_tasa'].nacional})).filter(x => isFinite(x.r)).sort((a, b) => b.r - a.r);
+      const nmk = k => lc(IND[k + '_tasa'].nombre.replace(/^Tasa de /, ''));
+      if (ratios.length) {
+        const over = ratios.filter(x => x.r > 1.1);
+        if (!full) t += over.length ? ` Entre los demás delitos, el que más supera la tasa nacional es ${nmk(over[0].k)} (${fmt(over[0].r, 1)} veces).` : ' Los demás delitos denunciados tienen tasas inferiores o similares a las nacionales.';
+        else {
+          t += over.length ? ` Supera la tasa nacional en ${over.length === 1 ? 'un delito' : over.length + ' delitos'}: ${over.slice(0, 4).map(x => `${nmk(x.k)} (${fmt(x.r, 1)} veces)`).join(', ')}.` : ' Los demás delitos denunciados tienen tasas inferiores o similares a las nacionales.';
+          const low = ratios.filter(x => x.r < 0.9); if (low.length) t += ` Está por debajo en ${low.slice(-3).reverse().map(x => nmk(x.k)).join(', ')}.`;
+          t += ' Los delitos distintos del homicidio dependen de la denuncia, por lo que una tasa alta también puede reflejar más disposición a denunciar.';
+        }
+      }
+      return t;
+    };
+    S['Conectividad'] = () => {
+      let t = `Tiene <b>${fmt(g('internet_fijo_por_100'), 1)} accesos fijos a internet por cada 100 habitantes</b>${pais('internet_fijo_por_100')}, puesto ${pos('internet_fijo_por_100')} de 33, y los accesos ${g('internet_fijo_var') >= 0 ? 'crecieron' : 'cayeron'} ${fmt(Math.abs(g('internet_fijo_var')), 1)} % en el último año.`;
+      if (full) {
+        const ac = g('internet_fijo_accesos'), sa = ((IND.internet_fijo_por_100.serie || {})[c] || []);
+        if (ac != null) t += ` Son ${fmt(ac, 0)} accesos en el primer trimestre de 2026.`;
+        if (sa.length > 1) t += ` En ${perTxt(sa[0][0])} la penetración era de ${fmt(sa[0][1], 1)} por cada 100 habitantes.`;
+        t += ' Un acceso fijo suele atender a un hogar completo, por lo que la cifra por habitante es menor que la proporción de hogares conectados.';
+      }
+      return t;
+    };
+    const P = [], seg = (t, x) => P.push(`<b class="seg">${t}.</b> ${x}`);
+    if (state.cat) seg(state.cat, S[state.cat]());
+    else groupsAll.forEach(k => S[k] && seg(k, S[k]()));
+    // Síntesis: todas las temáticas o solo la elegida
+    const cand = state.cat ? catInds(state.cat).filter(i => i.sentido !== 0).map(i => i.id)
+      : ['pib_per_capita', 'td', 'pobreza_monetaria', 'ipm', 'homicidios_tasa', 'cobertura_neta_media', 'saber11_puntaje_global', 'internet_fijo_por_100', 'mortalidad_infantil_tasa', 'priv_informalidad', 'priv_agua'];
+    const r = cand.filter(id => IND[id] && pos(id) && !/_var/.test(id)).map(id => ({id, p: pos(id), t: tot(id), q: (pos(id) - 1) / (tot(id) - 1)}));
     if (r.length > 2) {
       r.sort((a, b) => a.q - b.q); const best = r[0], worst = r[r.length - 1];
       seg('En síntesis', worst.q - best.q > 0.25
-        ? `Su posición relativa más favorable está en ${lc(IND[best.id].nombre)} (puesto ${best.p} de ${best.t}) y la más rezagada en ${lc(IND[worst.id].nombre)} (puesto ${worst.p} de ${worst.t}).`
-        : `Su posición es relativamente pareja: en los principales indicadores se ubica entre los puestos ${Math.min(...r.map(x => x.p))} y ${Math.max(...r.map(x => x.p))}.`);
+        ? `${state.cat ? 'En ' + lc(state.cat) + ', su' : 'Su'} posición relativa más favorable está en ${lc(IND[best.id].nombre)} (puesto ${best.p} de ${best.t}) y la más rezagada en ${lc(IND[worst.id].nombre)} (puesto ${worst.p} de ${worst.t}).`
+        : `Su posición es relativamente pareja: en los principales indicadores${state.cat ? ' de ' + lc(state.cat) : ''} se ubica entre los puestos ${Math.min(...r.map(x => x.p))} y ${Math.max(...r.map(x => x.p))}.`);
     }
     $('narrativa').innerHTML = P.map(x => `<p>${x}</p>`).join('') + '<p class="nota-auto">Lectura generada automáticamente con el dato más reciente de cada fuente oficial; cada cifra tiene su propio periodo. No establece causas.</p>';
   }
@@ -526,45 +620,62 @@ tr.sel td{background:var(--peach);font-weight:600}
       hit.addEventListener('mousemove', e => showTip(e, `<b>${DEP[cod].nombre}, ${x[0]}</b><br>${fmtv(i, x[1])}${nv != null ? '<br><span style="color:var(--ink3)">Colombia: ' + fmtv(i, nv) + '</span>' : ''}`)); hit.addEventListener('mouseleave', hideTip); });
     return {first: sd[0], last: lastD};
   }
-  function renderSerie(){
-    const i = IND[state.ind], d = DEP[state.dep];
-    $('key-dep').textContent = d.nombre; $('key-dep2').textContent = d.nombre;
-    const r = lineChart($('serie'), i, state.dep);
-    if (r) {
-      const delta = r.last[1] - r.first[1], up = delta > 0;
-      const how = Math.abs(delta) / Math.max(Math.abs(r.first[1]), 1e-9) < 0.02 ? 'se mantuvo prácticamente igual' : (up ? 'subió' : 'bajó') + ` de ${fmtv(i, r.first[1])} a ${fmtv(i, r.last[1])}`;
-      $('t-serie').textContent = `${i.nombre} en ${d.nombre}: entre ${r.first[0]} y ${r.last[0]} ${how}`;
-    } else $('t-serie').textContent = `${i.nombre} en ${d.nombre}`;
-    $('serie-sub').textContent = `${i.nombre_largo}${i.nombre_largo.includes(i.unidad) || i.unidad === '%' ? '' : ' (' + unitTxt(i) + ')'}. Cambia el indicador en el selector de arriba.`;
-    $('serie-src').innerHTML = `Fuente: <a href="${i.url}" target="_blank" rel="noopener">${i.fuente}</a>.${i.tipo === 'Cálculo propio' ? ' Cálculos: Colombia en Datos.' : ''}`;
-  }
-
-  // ---------- seguridad: múltiplos pequeños ----------
-  function renderCrimes(){
-    const c = state.dep, box = $('crimes'); box.innerHTML = '';
+  // Serie histórica: múltiplos pequeños con las variables de la temática
+  function renderSeries(){
+    const c = state.dep, d = DEP[c], box = $('series'); box.innerHTML = '';
+    $('key-dep').textContent = d.nombre;
+    const pool = state.cat ? catInds(state.cat) : D.kpi.map(id => IND[id]);
+    const withS = pool.filter(i => i.serie && ((i.serie[c] || []).length > 1));
+    const without = pool.filter(i => !withS.includes(i) && !/_var/.test(i.id));
+    const noDep = without.filter(i => i.serie && i.v[c] == null), single = without.filter(i => !noDep.includes(i));
     const mes = MESES[D.ult_mes_delitos];
-    $('crimen-sub').textContent = `Tasa anual por cada 100.000 habitantes, 2020 a 2025, y variación de casos entre enero y ${mes} de 2026 frente al mismo periodo de 2025. Haz clic en un delito para verlo en el mapa.`;
-    D.delitos.forEach(k => {
-      const i = IND[k + '_tasa'], iv = IND[k + '_var_ytd'], v = i.v[c], vv = iv ? iv.v[c] : null;
-      const div = document.createElement('div'); div.className = 'crime' + (state.ind === k + '_tasa' ? ' on' : '');
-      const name = i.nombre.replace(/^Tasa de /, ''); const nm = name.charAt(0).toUpperCase() + name.slice(1);
-      const cc = IND[k + '_casos_ytd'].v[c]; const varTxt = vv == null ? '' : (cc < 10 ? ` · ${fmt(cc, 0)} casos en 2026` : ` · ${vv > 0 ? '+' : ''}${fmt(vv, 0)} % en 2026`);
-      div.innerHTML = `<h5>${nm}</h5><p class="c-val"><b>${fmt(v, 1)}</b> por 100.000 en 2025${varTxt}</p>`;
+    let up = 0, down = 0, good = 0, bad = 0;
+    withS.forEach(i => {
+      const sd = i.serie[c], f = sd[0], l = sd[sd.length - 1];
+      const ch = Math.abs(l[1] - f[1]) / Math.max(Math.abs(f[1]), 1e-9) < 0.02 ? 0 : Math.sign(l[1] - f[1]);
+      if (ch > 0) up++; if (ch < 0) down++; if (ch && i.sentido && i.unidad !== 'pesos') (ch * i.sentido > 0 ? good++ : bad++);
+      const div = document.createElement('div'); div.className = 'crime' + (state.ind === i.id ? ' on' : '');
+      let extra = '';
+      if (i.grupo === 'Seguridad' && /_tasa$/.test(i.id)) {
+        const k = i.id.replace(/_tasa$/, ''), iv = IND[k + '_var_ytd'], cc = IND[k + '_casos_ytd'] ? IND[k + '_casos_ytd'].v[c] : null, vv = iv ? iv.v[c] : null;
+        if (cc != null) extra = cc < 10 ? ` · ${fmt(cc, 0)} casos ene-${mes.slice(0, 3)} 2026` : (vv != null ? ` · ${vv > 0 ? '+' : ''}${fmt(vv, 0)} % ene-${mes.slice(0, 3)} 2026` : '');
+      }
+      div.innerHTML = `<h5>${i.nombre}</h5><p class="c-val"><b>${fmtv(i, l[1])}</b> ${unitTxt(i) && unitTxt(i).length < 34 ? unitTxt(i) + ' ' : ''}en ${l[0]}${extra}</p>`;
       const svg = document.createElementNS(NS, 'svg'); div.appendChild(svg); box.appendChild(div);
       lineChart(svg, i, c, {small: true, h: 120});
-      div.onclick = () => { state.ind = k + '_tasa'; $('selInd').value = state.ind; render(); document.getElementById('t-mapa').scrollIntoView({behavior: 'smooth', block: 'start'}); };
+      div.onclick = () => { pickInd(i.id); $('t-mapa').scrollIntoView({behavior: 'smooth', block: 'start'}); };
     });
+    const tema = state.cat ? 'de ' + lc0(state.cat) : 'clave';
+    const main = withS.find(i => i.id === state.ind) || withS.find(i => i.id === CAT[state.cat].ind) || withS[0];
+    let tt;
+    if (!main) tt = `${d.nombre}: no hay series comparables para esta temática`;
+    else {
+      const sd = main.serie[c], f = sd[0], l = sd[sd.length - 1], flat = Math.abs(l[1] - f[1]) / Math.max(Math.abs(f[1]), 1e-9) < 0.02;
+      tt = `${main.nombre} en ${d.nombre}: ${flat ? 'prácticamente igual' : (l[1] > f[1] ? 'subió' : 'bajó') + ' de ' + fmtv(main, f[1]) + ' a ' + fmtv(main, l[1])} entre ${perTxt(f[0])} y ${perTxt(l[0])}${main.unidad === 'pesos' ? ', a precios corrientes' : ''}`;
+      if (good + bad >= 2) tt += `; ${good} de ${good + bad} indicadores ${tema} con serie ${good === 1 ? 'mejoró' : 'mejoraron'}${bad ? ' y ' + bad + ' ' + (bad === 1 ? 'empeoró' : 'empeoraron') : ''}`;
+    }
+    $('t-serie').textContent = tt;
+    $('serie-sub').textContent = 'Cada panel compara el departamento con el total nacional desde el primer periodo disponible en la fuente. Los periodos varían por indicador. Haz clic en un panel para verlo en el mapa.';
+    const nota = $('serie-nota');
+    const parts = [];
+    if (single.length) parts.push(`Con un solo periodo publicado, sin serie: ${single.map(i => lc0(i.nombre)).join(', ')}.`);
+    if (noDep.length) parts.push(`El DANE no publica para ${d.nombre}: ${noDep.map(i => lc0(i.nombre)).join(', ')}.`);
+    nota.hidden = !parts.length; nota.textContent = parts.join(' ');
+    const fu = [...new Set(withS.map(i => i.fuente))];
+    $('serie-src').textContent = `Fuente: ${fu.join('; ')}. ${withS.some(i => i.tipo === 'Cálculo propio') ? 'Cálculos: Colombia en Datos.' : ''}`;
   }
+  const perTxt = p => { const m = /^(\d{4})-T(\d)$/.exec(p); return m ? 'el ' + ['', 'primer', 'segundo', 'tercer', 'cuarto'][+m[2]] + ' trimestre de ' + m[1] : String(p).replace(/pr$/, ''); };
+  const lc0 = s => /^[A-ZÁÉÍÓÚ]{2}/.test(s) ? s : s.charAt(0).toLowerCase() + s.slice(1);
 
   function render(){
-    renderNarr(); renderKpis(); renderMap(); renderRank(); renderMeta(); renderSerie(); renderCrimes(); renderScatter();
-    const u = new URL(location.href); u.searchParams.set('dpto', state.dep); u.searchParams.set('ind', state.ind);
+    renderNarr(); renderKpis(); renderMap(); renderRank(); renderMeta(); renderSeries(); renderScatter();
+    const u = new URL(location.href); u.searchParams.set('dpto', state.dep); u.searchParams.set('ind', state.ind); if (state.cat) u.searchParams.set('tema', state.cat); else u.searchParams.delete('tema');
     try { history.replaceState(null, '', u); } catch(e) {}
     postHeight();
   }
   // Informa la altura a la página contenedora (útil con el elemento HTML de Wix y Velo)
   function postHeight(){ try { parent.postMessage({type:'radar-height', height: document.documentElement.scrollHeight}, '*'); } catch(e) {} }
-  let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { renderRank(); renderScatter(); renderSerie(); renderCrimes(); postHeight(); }, 150); });
+  let rz; addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { renderRank(); renderScatter(); renderSeries(); postHeight(); }, 150); });
   render();
 })();
 </script>
