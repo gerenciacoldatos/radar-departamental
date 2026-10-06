@@ -574,16 +574,6 @@ tr.sel td{background:var(--peach);font-weight:600}
     const P = [], seg = (t, x) => P.push(`<b class="seg">${t}.</b> ${x}`);
     if (state.cat) seg(state.cat, S[state.cat]());
     else groupsAll.forEach(k => S[k] && seg(k, S[k]()));
-    // Síntesis: todas las temáticas o solo la elegida
-    const cand = state.cat ? catInds(state.cat).filter(i => i.sentido !== 0).map(i => i.id)
-      : ['pib_per_capita', 'td', 'pobreza_monetaria', 'ipm', 'homicidios_tasa', 'cobertura_neta_media', 'saber11_puntaje_global', 'internet_fijo_por_100', 'mortalidad_infantil_tasa', 'priv_informalidad', 'priv_agua'];
-    const r = cand.filter(id => IND[id] && pos(id) && !/_var/.test(id)).map(id => ({id, p: pos(id), t: tot(id), q: (pos(id) - 1) / (tot(id) - 1)}));
-    if (r.length > 2) {
-      r.sort((a, b) => a.q - b.q); const best = r[0], worst = r[r.length - 1];
-      seg('En síntesis', worst.q - best.q > 0.25
-        ? `${state.cat ? 'En ' + lc(state.cat) + ', su' : 'Su'} posición relativa más favorable está en ${lc(IND[best.id].nombre)} (puesto ${best.p} de ${best.t}) y la más rezagada en ${lc(IND[worst.id].nombre)} (puesto ${worst.p} de ${worst.t}).`
-        : `Su posición es relativamente pareja: en los principales indicadores${state.cat ? ' de ' + lc(state.cat) : ''} se ubica entre los puestos ${Math.min(...r.map(x => x.p))} y ${Math.max(...r.map(x => x.p))}.`);
-    }
     $('narrativa').innerHTML = P.map(x => `<p>${x}</p>`).join('') + '<p class="nota-auto">Lectura generada automáticamente con el dato más reciente de cada fuente oficial; cada cifra tiene su propio periodo. No establece causas.</p>';
   }
 
